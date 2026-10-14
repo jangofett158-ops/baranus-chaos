@@ -4,8 +4,8 @@
 
 ## ⬇️ Скачать
 
-| Что | Ссылка |
-|---|---|
+
+
 | Приложение для Windows (x64) | [Baranus-Chaos-1.2.2.exe](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.2.2/Baranus-Chaos-1.2.2.exe) |
 | Мод для Minecraft 1.20.1 (Forge) | [baranus-chaos-forge-1.2.0.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.2.2/baranus-chaos-forge-1.2.0.jar) |
 
