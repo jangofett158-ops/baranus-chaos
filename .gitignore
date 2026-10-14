@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.data/
+.env
+*.log
+
+# Forge
+forge-mod/.gradle/
+forge-mod/build/
+forge-mod/run/
+forge-mod/run-server/
+
+# Локальное
+.claude/
+_backup-0.4.0/

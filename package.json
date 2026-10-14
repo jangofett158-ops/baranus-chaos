@@ -1,0 +1,41 @@
+{
+  "name": "baranus-chaos",
+  "version": "1.2.2",
+  "private": true,
+  "type": "module",
+  "description": "Baranus Chaos: донаты DonationAlerts запускают события в Minecraft 1.20.1 (Forge)",
+  "main": "desktop.cjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "desktop": "electron .",
+    "dist": "electron-builder --win portable --x64"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "site.baranus.chaos.control",
+    "productName": "Baranus Chaos",
+    "asar": true,
+    "files": [
+      "desktop.cjs",
+      "server.mjs",
+      "lib/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

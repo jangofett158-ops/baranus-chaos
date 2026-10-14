@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+issueTrackerURL="https://baranus.site/"
+
+[[mods]]
+modId="baranuschaos"
+version="1.2.0"
+displayName="Baranus Chaos"
+authors="Baranus"
+description='''
+Donation chaos events for streams: DonationAlerts donations trigger events in Minecraft through the Baranus Chaos app.
+'''
+
+[[dependencies.baranuschaos]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.10,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.baranuschaos]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"

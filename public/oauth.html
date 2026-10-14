@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baranus Chaos — вход DonationAlerts</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  body { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+  .card { width: min(480px, 100%); text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; padding: 34px 28px; }
+  .big { font-size: 56px; line-height: 1; }
+</style>
+<script src="/oauth.js" defer></script>
+</head>
+<body>
+  <main class="panel card">
+    <div class="big" id="oauth-icon"><span class="spinner"></span></div>
+    <h1 id="oauth-title">Подключаем…</h1>
+    <p class="muted" id="oauth-text">Передаём вход в Baranus Chaos.</p>
+  </main>
+</body>
+</html>
