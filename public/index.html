@@ -38,17 +38,17 @@
       <div class="status-grid">
         <article class="status-card" id="card-da">
           <div class="status-icon da">DA</div>
-          <div class="status-body"><span class="label">DonationAlerts</span><b class="value">—</b><small class="note"></small></div>
+          <div class="status-body"><span class="label">DonationAlerts</span><b class="value">—</b></div>
           <button class="btn ghost small" data-goto="connect">Настроить</button>
         </article>
         <article class="status-card" id="card-mc">
           <div class="status-icon mc">MC</div>
-          <div class="status-body"><span class="label">Minecraft</span><b class="value">—</b><small class="note"></small></div>
+          <div class="status-body"><span class="label">Minecraft</span><b class="value">—</b></div>
           <button class="btn ghost small" data-goto="connect">Настроить</button>
         </article>
         <article class="status-card" id="card-player">
           <div class="status-icon player">👤</div>
-          <div class="status-body"><span class="label">Игрок</span><b class="value">—</b><small class="note"></small></div>
+          <div class="status-body"><span class="label">Игрок</span><b class="value">—</b></div>
           <button class="btn ghost small" id="resume-game" hidden>Снять паузу</button>
         </article>
       </div>
@@ -61,7 +61,6 @@
         <div class="dash-side">
           <section class="panel">
             <h2>Тестовый донат</h2>
-            <p class="hint">Проходит тот же путь, что и настоящий донат: сумма → событие → игра.</p>
             <form id="test-donation" class="stack">
               <div class="row">
                 <label class="field grow">Сумма<input name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></label>
@@ -99,6 +98,7 @@
         <div class="tool grow">
           <span class="tool-label">Валюты зрителей из других стран</span>
           <div class="cur-list" id="cur-list"></div>
+          <div class="cur-rates" id="cur-rates"></div>
         </div>
         <label class="tool switch-row">
           <input type="checkbox" id="code-trigger"><span class="switch"></span>

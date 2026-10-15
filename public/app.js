@@ -76,7 +76,7 @@ function setCard(selector, kind, value, note) {
   const card = $(selector);
   card.className = `status-card ${kind || ''}`;
   card.querySelector('.value').textContent = value;
-  card.querySelector('.note').textContent = note || '';
+  card.title = note || ''; // пояснение — во всплывающей подсказке при наведении
 }
 
 function renderStatus() {
@@ -253,27 +253,37 @@ function fxCard(effect, counts) {
 }
 
 // ---------- Валюты ----------
+async function refreshRatesNow(button) {
+  button.disabled = true;
+  try { apply(await api('/api/rates/refresh')); toast('Курсы обновлены', 'ok'); }
+  catch (error) { toast(error.message, 'bad'); }
+  finally { button.disabled = false; }
+}
+
 function renderCurrencies() {
-  if (document.activeElement?.closest?.('#cur-list')) return; // не мешаем вводить курс
-  const {settings} = S;
+  const {settings, rates} = S;
   const main = settings.currency;
   const extras = Object.entries(settings.extraCurrencies);
-  const free = S.currencies.filter(code => code !== main && !settings.extraCurrencies[code]);
-  const chips = extras.map(([currency, {rate}]) => h('div', {class: 'cur-chip'},
-    h('b', {}, `${currency} ${SYMBOL[currency] || ''}`),
-    h('span', {class: 'muted'}, `1 ${SYMBOL[currency] || currency} =`),
-    h('input', {type: 'number', min: '0.0001', step: 'any', value: rate, title: `Сколько ${main} стоит 1 ${currency}`,
-      onchange: event => save({extraCurrencies: {[currency]: {rate: Number(event.target.value)}}}, 'Курс обновлён'),
-      onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
-    h('span', {class: 'muted'}, SYMBOL[main] || main),
-    h('button', {type: 'button', class: 'cur-remove', title: 'Убрать валюту', onclick: () => save({extraCurrencies: {[currency]: null}}, `${currency} убрана`)}, '✕')));
-  const add = free.length ? h('select', {class: 'select cur-add', 'aria-label': 'Добавить валюту',
-    onchange: event => { if (event.target.value) save({extraCurrencies: {[event.target.value]: {}}}, `${event.target.value} добавлена — цены посчитаны по курсу`); }},
-    h('option', {value: ''}, '＋ Добавить валюту'), ...free.map(code => h('option', {value: code}, `${code} ${SYMBOL[code] || ''} · ${CURRENCY_NAME[code] || ''}`))) : null;
-  const recalc = extras.length ? h('button', {type: 'button', class: 'btn ghost small', title: 'Сбросить ручные цены и посчитать все по курсу',
-    onclick: () => { if (confirm('Пересчитать цены во всех дополнительных валютах по курсу? Ручные цены будут сброшены.')) save({recalcPrices: true}, 'Цены пересчитаны по курсу'); }}, '↻ По курсу') : null;
-  $('#cur-list').replaceChildren(...chips, ...[add, recalc].filter(Boolean),
-    ...(extras.length ? [] : [h('span', {class: 'muted cur-empty'}, 'Только основная валюта')]));
+  // Все валюты — кнопки-переключатели: нажал — валюта принимается, курс подтягивается из интернета.
+  const toggles = S.currencies.filter(code => code !== main).map(code => {
+    const active = !!settings.extraCurrencies[code];
+    return h('button', {type: 'button', class: `cur-toggle${active ? ' active' : ''}`, title: CURRENCY_NAME[code] || code,
+      onclick: event => {
+        event.currentTarget.disabled = true;
+        save({extraCurrencies: {[code]: active ? null : {}}}, active ? `${code} убрана` : `${code} добавлена, цены посчитаны по курсу`);
+      }},
+      h('b', {}, SYMBOL[code] || code), ` ${code}`);
+  });
+  $('#cur-list').replaceChildren(...toggles);
+  const updated = rates?.updatedAt ? new Date(rates.updatedAt).toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}) : null;
+  $('#cur-rates').replaceChildren(...(extras.length ? [
+    h('span', {}, extras.map(([code, {rate}]) => `1 ${SYMBOL[code] || code} = ${num(rate)} ${SYMBOL[main] || main}`).join(' · ')),
+    h('span', {class: rates?.state === 'error' ? 'error-text' : 'muted'},
+      rates?.state === 'error' ? rates.message : updated ? `курс ${rates.source} на ${updated}` : 'курс обновляется…'),
+    h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, '↻ Обновить курс'),
+    h('button', {type: 'button', class: 'link-btn', title: 'Сбросить ручные цены в других валютах',
+      onclick: () => { if (confirm('Посчитать все цены в других валютах заново по текущему курсу? Ручные цены будут сброшены.')) save({recalcPrices: true}, 'Цены пересчитаны по курсу'); }}, 'Сбросить ручные цены')
+  ] : [h('span', {class: 'muted'}, 'Выберите валюты, в которых донатят ваши зрители, — цены посчитаются по актуальному курсу.')]));
   // Тестовый донат: основная + дополнительные валюты
   const select = $('#test-currency');
   const current = select.value;

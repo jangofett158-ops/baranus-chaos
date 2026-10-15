@@ -26,7 +26,7 @@ function fakeMinecraft({delayMs = 0} = {}) {
 
 async function start(options = {}) {
   const dataDir = options.dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'baranus-app-'));
-  const app = createApp({dataDir, publicDir, port: 0, statusIntervalMs: 60_000, ...options});
+  const app = createApp({dataDir, publicDir, port: 0, statusIntervalMs: 60_000, ratesIntervalMs: 0, ...options});
   const port = await app.listen();
   const base = `http://127.0.0.1:${port}`;
   const post = async (route, body = {}, headers = {}) => {
@@ -37,8 +37,8 @@ async function start(options = {}) {
   return {app, dataDir, port, base, post, get, async stop() { await app.close(); fs.rmSync(dataDir, {recursive: true, force: true}); }};
 }
 
-async function connected(minecraft) {
-  const ctx = await start({send: minecraft.send});
+async function connected(minecraft, options = {}) {
+  const ctx = await start({send: minecraft.send, ...options});
   try {
     const saved = await ctx.post('/api/minecraft', {mode: 'rcon', host: '127.0.0.1', port: 25575, password: 'rcon-secret', player: 'Streamer', simulate: false});
     assert.equal(saved.status, 200);
@@ -143,11 +143,19 @@ test('создание своего события в интерфейсе и з
   } finally { await ctx.stop(); }
 });
 
-test('зритель из другой страны: донат в долларах запускает событие по долларовой цене', async () => {
+test('зритель из другой страны: курс подтягивается сам, донат в долларах запускает событие', async () => {
   const minecraft = fakeMinecraft();
-  const ctx = await connected(minecraft);
+  const requested = [];
+  const fetchImpl = async url => {
+    requested.push(String(url));
+    return {ok: true, status: 200, json: async () => ({result: 'success', time_last_update_unix: 1792022551, rates: {RUB: 1, USD: 1 / 80}})};
+  };
+  const ctx = await connected(minecraft, {fetchImpl});
   try {
-    const saved = await ctx.post('/api/settings', {extraCurrencies: {USD: {rate: 80}}});
+    const saved = await ctx.post('/api/settings', {extraCurrencies: {USD: {}}});
+    assert.match(requested[0], /open\.er-api\.com\/v6\/latest\/RUB$/);
+    assert.equal(saved.body.settings.extraCurrencies.USD.rate, 80);
+    assert.equal(saved.body.rates.state, 'ok');
     assert.equal(saved.body.catalog.find(item => item.code === 'zombie').prices.USD, 0.25);
     await ctx.app.onDonation({id: 70, amount: 0.25, currency: 'USD', username: 'John'});
     const {history} = await ctx.get('/api/state');
