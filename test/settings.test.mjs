@@ -22,19 +22,19 @@ test('своё событие: создание, проверка команд, 
 test('дополнительные валюты: цена по курсу, ручная цена, пересчёт и смена основной', () => {
   let s = applyPatch(defaultSettings(), {extraCurrencies: {USD: {}, EUR: {rate: 100}}});
   assert.equal(s.extraCurrencies.USD.rate, 90);
-  assert.equal(priceIn(s, 'giantzombie', 'USD'), 2);  // 199 / 90 → 2,21 → 2
-  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 2);
-  s = applyPatch(s, {events: {giantzombie: {price: 300}}});
-  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 3, 'цена по курсу следует за основной');
-  s = applyPatch(s, {events: {giantzombie: {prices: {EUR: 4}}}});
-  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 4);
+  assert.equal(priceIn(s, 'giantzombie', 'USD'), 5);  // 199 / 90 = 2,21 → 5
+  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 5);
+  s = applyPatch(s, {events: {giantzombie: {price: 1200}}});
+  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 15, 'цена по курсу следует за основной (12 → 15)');
+  s = applyPatch(s, {events: {giantzombie: {prices: {EUR: 13}}}});
+  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 13, 'ручная цена — любая');
   assert.deepEqual(effectiveEvents(s).find(e => e.code === 'giantzombie').manual, ['EUR']);
   s = applyPatch(s, {recalcPrices: true});
-  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 3);
+  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 15);
   assert.equal(priceIn(s, 'zombie', 'UAH'), null, 'не добавленная валюта не принимается');
   assert.throws(() => applyPatch(s, {events: {zombie: {prices: {UAH: 5}}}}), /не добавлена/);
   assert.throws(() => applyPatch(s, {extraCurrencies: {RUB: {}}}), /основная/);
-  assert.equal(priceIn(applyPatch(defaultSettings(), {extraCurrencies: {KZT: {}}}), 'giantzombie', 'KZT'), 1106); // 199 / 0.18 → целое
+  assert.equal(priceIn(applyPatch(defaultSettings(), {extraCurrencies: {KZT: {}}}), 'giantzombie', 'KZT'), 1110); // 199 / 0.18 = 1105,6 → 1110
   const switched = applyPatch(s, {currency: 'USD'});
   assert.equal(switched.extraCurrencies.USD, undefined);
   assert.equal(switched.extraCurrencies.EUR.rate, 1.0889);
