@@ -5,15 +5,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.item.PrimedTnt;
-import net.minecraft.world.entity.projectile.SmallFireball;
-import net.minecraft.world.phys.HitResult;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import site.baranus.chaos.entity.GiantZombie;
 
 public final class ChaosEvents {
     @SubscribeEvent
@@ -30,16 +26,6 @@ public final class ChaosEvents {
     @SubscribeEvent
     public void serverStopping(ServerStoppingEvent event) {
         LocalBridge.stop();
-    }
-
-    /** Огненные шары гиганта жгут существ, но не поджигают постройки. */
-    @SubscribeEvent
-    public void projectile(ProjectileImpactEvent event) {
-        if (event.getProjectile() instanceof SmallFireball ball && ball.getOwner() instanceof GiantZombie
-            && event.getRayTraceResult().getType() == HitResult.Type.BLOCK) {
-            event.setCanceled(true);
-            ball.discard();
-        }
     }
 
     /** Фейковый TNT: вместо взрыва — только звук и вспышка. Блоки и игроки не страдают. */

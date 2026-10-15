@@ -411,7 +411,8 @@ async function testEffect(effect, button) {
 function feedItem(item) {
   const effect = item.code ? effectOf(item.code) : null;
   const donor = h('b', {}, item.donor || 'Зритель');
-  const title = effect ? [donor, h('span', {class: 'arrow'}, '→'), effect.name] : [donor, ' — донат без события'];
+  const title = effect ? [donor, h('span', {class: 'arrow'}, '→'), effect.name]
+    : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' — донат без события'];
   const details = [];
   if (item.amount != null) details.push(money(item.amount, item.currency));
   if (item.requested === 'random' && item.code !== 'random') details.push('🎲 случайное событие');

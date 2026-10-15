@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +19,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffect;
@@ -37,9 +35,7 @@ import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
-import site.baranus.chaos.entity.GiantZombie;
 
 /**
  * Все события Baranus Chaos. Код события совпадает с каталогом приложения (lib/catalog.mjs).
@@ -48,7 +44,6 @@ import site.baranus.chaos.entity.GiantZombie;
 public final class ChaosEffects {
     public static final String CHAOS_TAG = "baranus_chaos";
     public static final String FAKE_TNT_TAG = "baranus_fake_tnt";
-    private static final int MAX_GIANTS = 2;
 
     public record Info(String label, ChatFormatting color) { }
 
@@ -83,7 +78,6 @@ public final class ChaosEffects {
         add("faketnt", "TNT?!", CHAOS);
         add("night", "Ночь", CHAOS);
         add("storm", "Гроза", CHAOS);
-        add("giantzombie", "Огненный гигант", CHAOS);
     }
     public static final List<String> CODES = List.copyOf(EFFECTS.keySet());
 
@@ -165,7 +159,6 @@ public final class ChaosEffects {
                 overworld.setDayTime(night <= time ? night + 24000L : night);
             }
             case "storm" -> overworld.setWeatherParameters(0, 20 * 120, true, true);
-            case "giantzombie" -> { requireHostile(level); spawnGiant(level, player, donor); }
             default -> throw new ChaosException("unknown");
         }
         announce(player, info, donor);
@@ -287,31 +280,5 @@ public final class ChaosEffects {
         name(tnt, donor);
         level.addFreshEntity(tnt);
         level.playSound(null, tnt.getX(), tnt.getY(), tnt.getZ(), SoundEvents.TNT_PRIMED, SoundSource.BLOCKS, 1.0F, 1.0F);
-    }
-
-    private static void spawnGiant(ServerLevel level, ServerPlayer player, String donor) {
-        // Не больше двух гигантов на игрока: самый старый уступает место новому — донат не пропадает.
-        List<GiantZombie> active = level.getEntitiesOfClass(GiantZombie.class, player.getBoundingBox().inflate(96.0D),
-            giant -> giant.isChasing(player.getUUID()));
-        if (active.size() >= MAX_GIANTS) active.stream().max(Comparator.comparingInt(GiantZombie::ageTicks)).ifPresent(Entity::discard);
-        GiantZombie giant = ChaosEntities.GIANT_ZOMBIE.get().create(level);
-        if (giant == null) throw new ChaosException("failed");
-        for (int i = 0; i < 32; i++) {
-            double angle = i * 2.399963229728653;
-            double radius = 7 + (i % 4) * 2;
-            int x = Mth.floor(player.getX() + Math.cos(angle) * radius);
-            int z = Mth.floor(player.getZ() + Math.sin(angle) * radius);
-            BlockPos candidate = new BlockPos(x, Mth.floor(player.getY()), z);
-            if (!level.hasChunkAt(candidate)) continue;
-            BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, candidate);
-            if (Math.abs(surface.getY() - player.getY()) > 6) continue;
-            giant.moveTo(x + 0.5, surface.getY(), z + 0.5, player.getYRot(), 0);
-            if (!level.noCollision(giant)) continue;
-            giant.chase(player);
-            name(giant, donor);
-            giant.addTag(CHAOS_TAG);
-            if (level.addFreshEntity(giant)) return;
-        }
-        throw new ChaosException("no-space");
     }
 }

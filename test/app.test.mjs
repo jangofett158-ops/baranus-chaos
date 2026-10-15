@@ -13,7 +13,7 @@ function fakeMinecraft({delayMs = 0} = {}) {
   let active = 0, maxActive = 0;
   const send = async ({command}) => {
     log.push(command);
-    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.2.0 0 Streamer';
+    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.3.0 0 Streamer';
     active++; maxActive = Math.max(maxActive, active);
     await new Promise(resolve => setTimeout(resolve, delayMs));
     active--;
@@ -57,12 +57,12 @@ test('донаты выполняются сразу и параллельно �
   const ctx = await connected(minecraft);
   try {
     const started = Date.now();
-    await Promise.all([ctx.app.onDonation(donation(1, 20)), ctx.app.onDonation(donation(2, 199)), ctx.app.onDonation(donation(3, 15))]);
+    await Promise.all([ctx.app.onDonation(donation(1, 20)), ctx.app.onDonation(donation(2, 149)), ctx.app.onDonation(donation(3, 15))]);
     assert.ok(Date.now() - started < 300, 'три доната не ждут друг друга');
     assert.equal(minecraft.maxActive, 3);
     const {history} = await ctx.get('/api/state');
-    assert.deepEqual(history.filter(item => item.state === 'done').map(item => item.code).sort(), ['giantzombie', 'pig', 'zombie']);
-    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger giantzombie Streamer ')));
+    assert.deepEqual(history.filter(item => item.state === 'done').map(item => item.code).sort(), ['golem', 'pig', 'zombie']);
+    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger golem Streamer ')));
   } finally { await ctx.stop(); }
 });
 
@@ -156,21 +156,21 @@ test('зритель из другой страны: курс подтягива
     assert.match(requested[0], /open\.er-api\.com\/v6\/latest\/RUB$/);
     assert.equal(saved.body.settings.extraCurrencies.USD.rate, 10);
     assert.equal(saved.body.rates.state, 'ok');
-    assert.equal(saved.body.catalog.find(item => item.code === 'giantzombie').prices.USD, 20); // 199 ₽ / 10 = 19,9 → 20 $
-    await ctx.app.onDonation({id: 70, amount: 20, currency: 'USD', username: 'John'});
+    assert.equal(saved.body.catalog.find(item => item.code === 'golem').prices.USD, 15); // 149 ₽ / 10 = 14,9 → 15 $
+    await ctx.app.onDonation({id: 70, amount: 15, currency: 'USD', username: 'John'});
     const {history} = await ctx.get('/api/state');
     const entry = history.find(item => item.donationId === '70');
     assert.equal(entry.state, 'done');
-    assert.equal(entry.code, 'giantzombie');
+    assert.equal(entry.code, 'golem');
     assert.equal(entry.currency, 'USD');
-    const test = await ctx.post('/api/test/donation', {amount: 20, currency: 'USD'});
-    assert.equal(test.body.code, 'giantzombie');
+    const test = await ctx.post('/api/test/donation', {amount: 15, currency: 'USD'});
+    assert.equal(test.body.code, 'golem');
   } finally { await ctx.stop(); }
 });
 
 test('ошибка мода видна в ленте, донат можно повторить', async () => {
   let fail = true;
-  const send = async ({command}) => command === 'baranuschaos status' ? 'BaranusChaos:STATUS 1.2.0 0 Streamer'
+  const send = async ({command}) => command === 'baranuschaos status' ? 'BaranusChaos:STATUS 1.3.0 0 Streamer'
     : fail ? 'No player was found' : `BaranusChaos:OK ${command.split(' ')[2]} Streamer`;
   const ctx = await connected({send});
   try {
@@ -230,7 +230,7 @@ test('локальный мир: без пароля, мост 127.0.0.1:25585, 
   const calls = [];
   const send = async ({host, port, password, command}) => {
     calls.push({host, port, password, command});
-    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.2.0 0 Streamer';
+    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.3.0 0 Streamer';
     return `BaranusChaos:OK ${command.split(' ')[2]} Streamer`;
   };
   const ctx = await start({send});

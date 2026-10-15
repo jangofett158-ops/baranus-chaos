@@ -8,7 +8,7 @@ const donation = (amount, extra = {}) => normalizeDonation({id: 1, amount, curre
 
 test('точная сумма запускает событие с этой ценой', () => {
   assert.deepEqual(matchDonation(donation(20), settings), {code: 'zombie', via: 'amount', pool: 1});
-  assert.equal(matchDonation(donation(199), settings).code, 'giantzombie');
+  assert.equal(matchDonation(donation(149), settings).code, 'golem');
   assert.equal(matchDonation(donation('49.00'), settings).code, 'heal');
 });
 
@@ -54,14 +54,14 @@ test('донат в другой валюте использует amount_in_use
 
 test('донаты в разных валютах: своя цена в каждой валюте', () => {
   let multi = applyPatch(settings, {extraCurrencies: {USD: {rate: 10}, KZT: {rate: 0.2}}});
-  // Гигант 199 ₽ → 20 $ (сразу целое), зомби 20 ₽ → 100 ₸
-  const usd = normalizeDonation({id: 5, amount: 20, currency: 'USD'});
-  assert.equal(matchDonation(usd, multi).code, 'giantzombie');
-  assert.equal(matchDonation(normalizeDonation({id: 9, amount: 19.9, currency: 'USD'}), multi).code, undefined, 'копейки не совпадают с целой ценой');
+  // Голем 149 ₽ → 14,9 $ → 15 $, зомби 20 ₽ → 100 ₸
+  const usd = normalizeDonation({id: 5, amount: 15, currency: 'USD'});
+  assert.equal(matchDonation(usd, multi).code, 'golem');
+  assert.equal(matchDonation(normalizeDonation({id: 9, amount: 14.9, currency: 'USD'}), multi).code, undefined, 'копейки не совпадают с целой ценой');
   assert.equal(matchDonation(normalizeDonation({id: 6, amount: 100, currency: 'KZT'}), multi).code, 'zombie');
   // Ручная цена в долларах
-  multi = applyPatch(multi, {events: {giantzombie: {prices: {USD: 50}}}});
-  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 50, currency: 'USD'}), multi).code, 'giantzombie');
+  multi = applyPatch(multi, {events: {golem: {prices: {USD: 50}}}});
+  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 50, currency: 'USD'}), multi).code, 'golem');
   // Валюта не добавлена и нет пересчёта от DonationAlerts
   assert.match(matchDonation(normalizeDonation({id: 8, amount: 5, currency: 'EUR'}), multi).reason, /EUR.*не добавлена/);
 });
