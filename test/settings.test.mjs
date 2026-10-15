@@ -22,8 +22,8 @@ test('своё событие: создание, проверка команд, 
 test('дополнительные валюты: цена по курсу, ручная цена, пересчёт и смена основной', () => {
   let s = applyPatch(defaultSettings(), {extraCurrencies: {USD: {}, EUR: {rate: 100}}});
   assert.equal(s.extraCurrencies.USD.rate, 90);
-  assert.equal(priceIn(s, 'giantzombie', 'USD'), 2.21);  // 199 / 90
-  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 1.99);
+  assert.equal(priceIn(s, 'giantzombie', 'USD'), 2);  // 199 / 90 → 2,21 → 2
+  assert.equal(priceIn(s, 'giantzombie', 'EUR'), 2);
   s = applyPatch(s, {events: {giantzombie: {price: 300}}});
   assert.equal(priceIn(s, 'giantzombie', 'EUR'), 3, 'цена по курсу следует за основной');
   s = applyPatch(s, {events: {giantzombie: {prices: {EUR: 4}}}});
@@ -62,7 +62,7 @@ test('строгая проверка значений из интерфейса
   assert.throws(() => applyPatch(base, {minecraft: {player: 'Steve; op me'}}), /Ник/);
   assert.throws(() => applyPatch(base, {minecraft: {host: 'http://evil'}}), /Адрес/);
   assert.throws(() => applyPatch(base, {overlay: {color: 'red;display:none'}}), /Цвет/);
-  assert.equal(applyPatch(base, {events: {zombie: {price: 20.555}}}).events.zombie.price, 20.56);
+  assert.equal(applyPatch(base, {events: {zombie: {price: 20.555}}}).events.zombie.price, 21, 'цены только целые');
   assert.equal(base.events.zombie.price, 20, 'исходный объект не меняется');
 });
 

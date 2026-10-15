@@ -241,7 +241,7 @@ function fxCard(effect, counts) {
     h('div', {class: 'fx-code'}, '!' + effect.code),
     h('div', {class: 'fx-bottom'},
       h('label', {class: 'fx-price', title: 'Цена события'},
-        h('input', {type: 'number', min: '1', step: '0.01', value: config.price, 'aria-label': `Цена: ${effect.name}`,
+        h('input', {type: 'number', min: '1', step: '1', value: config.price, 'aria-label': `Цена: ${effect.name}`,
           onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
           onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
         h('em', {}, SYMBOL[S.settings.currency] || S.settings.currency)),
@@ -324,7 +324,7 @@ function openEditor(code) {
   const extras = Object.keys(S.settings.extraCurrencies);
   $('#extra-prices').replaceChildren(...(extras.length ? [h('span', {class: 'tool-label'}, 'Цены для зрителей в других валютах · пусто = по курсу')] : []),
     h('div', {class: 'row wrap'}, ...extras.map(currency => h('label', {class: 'field extra-price'}, `${currency} ${SYMBOL[currency] || ''}`,
-      h('input', {type: 'number', min: '0.01', step: '0.01', 'data-currency': currency,
+      h('input', {type: 'number', min: '1', step: '1', 'data-currency': currency,
         value: effect?.manual?.includes(currency) ? effect.prices[currency] : '',
         placeholder: effect ? `${num(effect.prices[currency])} по курсу` : 'по курсу'})))));
   $$('.money .cur').forEach(el => { el.textContent = SYMBOL[S.settings.currency] || S.settings.currency; });

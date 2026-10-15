@@ -53,14 +53,15 @@ test('донат в другой валюте использует amount_in_use
 });
 
 test('донаты в разных валютах: своя цена в каждой валюте', () => {
-  let multi = applyPatch(settings, {extraCurrencies: {USD: {rate: 80}, KZT: {rate: 0.2}}});
-  // Зомби 20 ₽ → 0.25 $ и 100 ₸ по курсу
-  const usd = normalizeDonation({id: 5, amount: 0.25, currency: 'USD'});
-  assert.equal(matchDonation(usd, multi).code, 'zombie');
+  let multi = applyPatch(settings, {extraCurrencies: {USD: {rate: 10}, KZT: {rate: 0.2}}});
+  // Гигант 199 ₽ → 20 $ (сразу целое), зомби 20 ₽ → 100 ₸
+  const usd = normalizeDonation({id: 5, amount: 20, currency: 'USD'});
+  assert.equal(matchDonation(usd, multi).code, 'giantzombie');
+  assert.equal(matchDonation(normalizeDonation({id: 9, amount: 19.9, currency: 'USD'}), multi).code, undefined, 'копейки не совпадают с целой ценой');
   assert.equal(matchDonation(normalizeDonation({id: 6, amount: 100, currency: 'KZT'}), multi).code, 'zombie');
   // Ручная цена в долларах
-  multi = applyPatch(multi, {events: {giantzombie: {prices: {USD: 5}}}});
-  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 5, currency: 'USD'}), multi).code, 'giantzombie');
+  multi = applyPatch(multi, {events: {giantzombie: {prices: {USD: 50}}}});
+  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 50, currency: 'USD'}), multi).code, 'giantzombie');
   // Валюта не добавлена и нет пересчёта от DonationAlerts
   assert.match(matchDonation(normalizeDonation({id: 8, amount: 5, currency: 'EUR'}), multi).reason, /EUR.*не добавлена/);
 });

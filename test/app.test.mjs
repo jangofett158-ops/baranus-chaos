@@ -148,23 +148,23 @@ test('зритель из другой страны: курс подтягива
   const requested = [];
   const fetchImpl = async url => {
     requested.push(String(url));
-    return {ok: true, status: 200, json: async () => ({result: 'success', time_last_update_unix: 1792022551, rates: {RUB: 1, USD: 1 / 80}})};
+    return {ok: true, status: 200, json: async () => ({result: 'success', time_last_update_unix: 1792022551, rates: {RUB: 1, USD: 1 / 10}})};
   };
   const ctx = await connected(minecraft, {fetchImpl});
   try {
     const saved = await ctx.post('/api/settings', {extraCurrencies: {USD: {}}});
     assert.match(requested[0], /open\.er-api\.com\/v6\/latest\/RUB$/);
-    assert.equal(saved.body.settings.extraCurrencies.USD.rate, 80);
+    assert.equal(saved.body.settings.extraCurrencies.USD.rate, 10);
     assert.equal(saved.body.rates.state, 'ok');
-    assert.equal(saved.body.catalog.find(item => item.code === 'zombie').prices.USD, 0.25);
-    await ctx.app.onDonation({id: 70, amount: 0.25, currency: 'USD', username: 'John'});
+    assert.equal(saved.body.catalog.find(item => item.code === 'giantzombie').prices.USD, 20); // 199 ₽ / 10 = 19,9 → 20 $
+    await ctx.app.onDonation({id: 70, amount: 20, currency: 'USD', username: 'John'});
     const {history} = await ctx.get('/api/state');
     const entry = history.find(item => item.donationId === '70');
     assert.equal(entry.state, 'done');
-    assert.equal(entry.code, 'zombie');
+    assert.equal(entry.code, 'giantzombie');
     assert.equal(entry.currency, 'USD');
-    const test = await ctx.post('/api/test/donation', {amount: 0.25, currency: 'USD'});
-    assert.equal(test.body.code, 'zombie');
+    const test = await ctx.post('/api/test/donation', {amount: 20, currency: 'USD'});
+    assert.equal(test.body.code, 'giantzombie');
   } finally { await ctx.stop(); }
 });
 

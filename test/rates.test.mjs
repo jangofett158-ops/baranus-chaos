@@ -13,8 +13,9 @@ test('курсы: сколько основной валюты стоит 1 ед
   await assert.rejects(() => fetchRates('RUB', ['USD'], async () => ({ok: true, json: async () => ({result: 'error'})})), /ошибку/);
 });
 
-test('цены по курсу: от 10 — целыми, меньше — до копеек', () => {
-  assert.equal(convertPrice(199, 83.93), 2.37);
+test('цены по курсу сразу целые, минимум 1', () => {
+  assert.equal(convertPrice(199, 83.93), 2);
+  assert.equal(convertPrice(20, 83.93), 1);
   assert.equal(convertPrice(199, 2.6), 77);
   assert.equal(convertPrice(20, 0.1859), 108);
 });
