@@ -82,7 +82,7 @@ function setCard(selector, kind, value, note) {
 function renderStatus() {
   const {da, mc, settings} = S;
   const local = settings.minecraft.mode === 'local';
-  const player = settings.minecraft.player || mc.target;
+  const player = mc.target;
 
   const daKind = {online: 'ok', connecting: 'warn', error: 'bad', auth: 'bad'}[da.state] || '';
   const daValue = da.state === 'online' ? (da.profile?.name || 'Подключено')
@@ -98,10 +98,9 @@ function renderStatus() {
   setMini('#mini-mc', mcKind === 'sim' ? 'warn' : mcKind);
   setCard('#card-mc', mcKind, mcValue, mcNote);
 
-  let playerKind = '', playerNote = 'Укажите ник во вкладке «Подключения»';
+  let playerKind = '', playerNote = 'Зайдите в мир — ник определится сам';
   if (player) {
-    if (settings.minecraft.simulate) { playerKind = 'sim'; playerNote = 'Симуляция'; }
-    else if (mc.state !== 'online') playerNote = 'Сервер пока не отвечает';
+    if (mc.state !== 'online') playerNote = 'Сервер пока не отвечает';
     else if (mc.paused) { playerKind = 'warn'; playerNote = 'Хаос на паузе в игре (клавиша K)'; }
     else if (mc.playerOnline) { playerKind = 'ok'; playerNote = 'В игре — события будут срабатывать'; }
     else { playerKind = 'bad'; playerNote = 'Не в сети'; }
@@ -115,7 +114,7 @@ function renderStatus() {
   $('#chaos-sub').textContent = settings.paused ? 'Донаты не запускают события' : 'Нажмите, чтобы поставить паузу';
 
   const daDone = da.state === 'online';
-  const mcDone = settings.minecraft.simulate || (mc.state === 'online' && !!player);
+  const mcDone = mc.state === 'online' && !!player;
   $('#nav-alert').hidden = daDone && mcDone;
 
   renderDaBox();
@@ -158,7 +157,6 @@ function renderDaBox() {
   box.replaceChildren(...[
     daWaiting ? h('div', {class: 'da-wait'}, h('span', {class: 'spinner'}), 'Подтвердите вход в открывшемся браузере…') : null,
     h('button', {class: 'btn primary big', type: 'button', onclick: login}, daWaiting ? 'Открыть вход ещё раз' : 'Войти через DonationAlerts'),
-    h('div', {class: 'da-steps'}, h('span', {}, '1. Откроется браузер'), h('span', {}, '2. «Разрешить»'), h('span', {}, '3. Готово')),
     da.message && ['error', 'auth'].includes(da.state) ? h('p', {class: 'error-text'}, da.message) : null,
     daLogBlock()
   ].filter(Boolean));
@@ -239,7 +237,7 @@ function renderMcResult() {
   }
   let text = mc.message;
   if (mc.state === 'online') text = `✓ Мод ${mc.version} отвечает. В сети: ${mc.players.join(', ') || 'никого'}.`;
-  if (mc.state === 'online' && settings.minecraft.player && !mc.playerOnline) text += ` Игрок ${settings.minecraft.player} сейчас не в сети.`;
+  if (mc.state === 'online') text += mc.target ? ` Ваш ник: ${mc.target}.` : ' Ваш ник определится, когда вы зайдёте в мир.';
   result.replaceChildren(text && kinds[mc.state] ? h('div', {class: `result ${kinds[mc.state]}`}, text) : '');
 
   const list = $('#online-players');
@@ -432,7 +430,6 @@ const plural = (count, one, few, many) => {
 };
 
 // ---------- Редактор событий ----------
-const EMOJI = ['✨', '💥', '🔥', '❄️', '⚡', '🎉', '💀', '👻', '🧨', '🐉', '🍰', '🎁', '🪄', '🌪️', '🌋', '🐸', '🦴', '🛡️', '⚔️', '🏹', '🧲', '🕳️', '🌈', '🎵'];
 let editing = null;
 
 function openEditor(code) {
@@ -443,7 +440,6 @@ function openEditor(code) {
   const custom = !effect || effect.custom;
   dialog.classList.toggle('is-custom', custom);
   $('#editor-title').textContent = !effect ? 'Новое событие' : custom ? 'Своё событие' : 'Встроенное событие';
-  form.icon.value = effect?.icon || '✨';
   form.name.value = effect?.name || '';
   form.desc.value = effect?.desc || '';
   form.price.value = effect ? priceOf(effect.code) : suggestPrice();
@@ -460,7 +456,6 @@ function openEditor(code) {
   remove.hidden = !effect || (!custom && !effect.renamed);
   remove.textContent = custom ? 'Удалить' : 'Вернуть исходное';
   $('#editor-test').hidden = !effect;
-  $('#emoji-row').replaceChildren(...EMOJI.map(icon => h('button', {type: 'button', onclick: () => { form.icon.value = icon; }}, icon)));
   // Цены в дополнительных валютах: пусто — считать по курсу, число — своя цена.
   const extras = Object.keys(S.settings.extraCurrencies);
   $('#extra-prices').replaceChildren(...(extras.length ? [h('span', {class: 'tool-label'}, 'Цены для зрителей в других валютах · пусто = по курсу')] : []),
@@ -485,7 +480,7 @@ $('#editor-close').addEventListener('click', () => $('#event-editor').close());
 $('#event-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.target.elements;
-  const body = {code: editing?.code, icon: form.icon.value, name: form.name.value, desc: form.desc.value,
+  const body = {code: editing?.code, name: form.name.value, desc: form.desc.value,
     price: Number(form.price.value), enabled: form.enabled.checked,
     prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)])),
     target: form.target.value, cooldown: Number(form.cooldown.value || 0),
@@ -606,8 +601,7 @@ function fillForms() {
   mcForm.player.value = minecraft.player;
   mcForm.friendHost.value = minecraft.friendHost || '';
   mcForm.friendCode.value = '';
-  mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён' : '8 букв и цифр';
-  mcForm.simulate.checked = minecraft.simulate;
+  mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён' : 'из приложения друга';
   mcForm.password.value = '';
   mcForm.password.placeholder = minecraft.hasPassword ? 'Сохранён — оставьте пустым' : 'rcon.password из server.properties';
   const client = $('#client-form').elements;
@@ -688,10 +682,10 @@ $('#mc-form').addEventListener('submit', async event => {
   try {
     apply(await api('/api/minecraft', {mode: mcMode, host: form.host.value.trim(), port: Number(form.port.value) || undefined,
       friendHost: form.friendHost.value.trim(), friendCode: form.friendCode.value.trim(),
-      password: form.password.value, player: form.player.value.trim(), simulate: form.simulate.checked}));
+      password: form.password.value, player: form.player.value.trim()}));
     fillForms();
     const {mc} = S;
-    if (mc.state === 'online' || mc.state === 'simulate') toast(mc.state === 'online' ? 'Minecraft подключён ✓' : 'Сохранено: симуляция', 'ok');
+    if (mc.state === 'online') toast('Minecraft подключён ✓', 'ok');
     else toast(mc.message || 'Сохранено', mc.state === 'error' ? 'bad' : '');
   } catch (error) { toast(error.message, 'bad'); }
   finally { button.disabled = false; button.textContent = 'Сохранить и проверить'; }

@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.0 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.1 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -166,6 +166,17 @@ test('создание своего события в интерфейсе и з
     const deleted = await ctx.post('/api/events/delete', {code});
     assert.equal(deleted.body.catalog.some(item => item.code === code), false);
     assert.equal((await ctx.post('/api/events/save', {code: 'c_nope!', name: 'x', icon: '✨', price: 5, commands: 'say'})).status, 400);
+  } finally { await ctx.stop(); }
+});
+
+test('редактор без выбора иконки: событие сохраняется, иконка остаётся прежней', async () => {
+  const ctx = await start();
+  try {
+    const created = await ctx.post('/api/events/save', {name: 'Без иконки', price: 444, commands: 'say hi'});
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    assert.ok(created.body.catalog.find(item => item.code === created.body.savedCode).icon);
+    const zombie = await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', price: 22});
+    assert.equal(zombie.body.catalog.find(item => item.code === 'zombie').icon, '🧟');
   } finally { await ctx.stop(); }
 });
 
@@ -490,6 +501,21 @@ test('мир друга: подключение по адресу Radmin с ко
     const state = JSON.stringify(await ctx.get('/api/state'));
     assert.equal(state.includes('ABCD2345'), false, 'код друга не уходит в интерфейс');
     assert.equal((await ctx.post('/api/remote', {enable: true})).status, 400, 'совместную игру включает хозяин мира');
+  } finally { await ctx.stop(); }
+});
+
+test('ник стримера определяет мод, вписывать его не нужно', async () => {
+  const base = fakeMinecraft({players: 'Baranus,Friend'});
+  const ctx = await start({send: async request => {
+    const reply = await base.send(request);
+    return request.command === 'baranuschaos status' ? reply + ' Friend' : reply;
+  }});
+  try {
+    const saved = await ctx.post('/api/minecraft', {mode: 'friend', friendHost: '26.10.20.30', friendCode: 'abcd2345'});
+    assert.equal(saved.body.mc.target, 'Friend');
+    await ctx.post('/api/settings', {queue: {delay: 0, gap: 0}});
+    await donate(ctx, donation(901, 20));
+    assert.ok(base.log.some(command => command.startsWith('baranuschaos trigger zombie Friend ')), 'моб — у своего стримера');
   } finally { await ctx.stop(); }
 });
 

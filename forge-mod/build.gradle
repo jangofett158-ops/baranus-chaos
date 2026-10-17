@@ -4,7 +4,7 @@ plugins {
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
-version = '1.5.0'
+version = '1.5.1'
 group = 'site.baranus.chaos'
 
 base {

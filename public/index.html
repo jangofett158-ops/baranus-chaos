@@ -171,9 +171,8 @@
               <p class="hint">Играете в мире другого стримера через Radmin VPN. Настройки событий подтянутся из его мира автоматически.</p>
               <div class="row">
                 <label class="field grow">Адрес друга в Radmin<input name="friendHost" placeholder="26.x.x.x"></label>
-                <label class="field code-field">Код доступа<input name="friendCode" autocomplete="off" maxlength="16" placeholder="8 букв и цифр"></label>
+                <label class="field code-field">Код доступа<input name="friendCode" autocomplete="off" maxlength="16" placeholder="из приложения друга"></label>
               </div>
-              <p class="hint friend-code-hint"><b>Где взять код:</b> у друга, который открыл мир, — в его приложении Baranus Chaos: «Подключения» → «Совместная игра» → включить «Разрешить подключение друга». Там же его адрес Radmin. Это <b>не порт</b>: порт из чата Minecraft нужен только самой игре, чтобы зайти в мир («Сетевая игра» → адрес:порт).</p>
             </div>
             <div class="rcon-only stack">
               <div class="row">
@@ -181,16 +180,10 @@
                 <label class="field port">Порт RCON<input name="port" type="number" min="1" max="65535"></label>
               </div>
               <label class="field">Пароль RCON<input name="password" type="password" autocomplete="new-password"></label>
-            </div>
-            <div class="row end">
-              <label class="field grow">Ник стримера в игре<input name="player" list="players" pattern="[A-Za-z0-9_]{3,16}" placeholder="Пусто — единственный игрок в мире"></label>
+              <label class="field">Ваш ник на сервере<input name="player" list="players" pattern="[A-Za-z0-9_]{3,16}" placeholder="Пусто — если вы там один"></label>
               <datalist id="players"></datalist>
+              <div class="online" id="online-players"></div>
             </div>
-            <div class="online" id="online-players"></div>
-            <label class="switch-row">
-              <input type="checkbox" name="simulate"><span class="switch"></span>
-              <span><b>Симуляция</b><small>События пишутся в ленту, в игру ничего не отправляется</small></span>
-            </label>
             <button class="btn primary" type="submit">Сохранить и проверить</button>
           </form>
           <div class="mc-result" id="mc-result"></div>
@@ -214,7 +207,7 @@
             <pre class="code-block">enable-rcon=true
 rcon.port=25575
 rcon.password=придумайте_длинный_пароль</pre>
-            <p class="hint">Мод <b>baranus-chaos-forge-1.5.0.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «🏠 Свой мир» — RCON не нужен.</p>
+            <p class="hint">Мод <b>baranus-chaos-forge-1.5.1.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «🏠 Свой мир» — RCON не нужен.</p>
           </details>
         </section>
       </div>
@@ -231,11 +224,9 @@ rcon.password=придумайте_длинный_пароль</pre>
       <button class="icon-close" type="button" id="editor-close" aria-label="Закрыть">✕</button>
     </div>
     <div class="row">
-      <label class="field icon-field">Иконка<input name="icon" maxlength="8" placeholder="✨" required></label>
       <label class="field grow">Название<input name="name" maxlength="40" required placeholder="Например, Взрыв конфетти"></label>
       <label class="field price-field">Цена<span class="money"><input name="price" type="number" min="1" step="1" required><em class="cur"></em></span></label>
     </div>
-    <div class="emoji-row" id="emoji-row"></div>
     <div class="extra-prices" id="extra-prices"></div>
     <label class="field">Описание<input name="desc" maxlength="120" placeholder="Что произойдёт в игре"></label>
     <div class="row wrap">

@@ -16,6 +16,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
@@ -92,7 +93,7 @@ public final class LocalBridge {
                 } else if (type == 2) {
                     if (!authed) return;
                     String command = new String(payload, StandardCharsets.UTF_8).trim();
-                    write(out, id, 0, run(server, command));
+                    write(out, id, 0, run(server, command, client.getInetAddress()));
                 }
             }
         } catch (IOException | InterruptedException ignored) {
@@ -100,13 +101,34 @@ public final class LocalBridge {
         }
     }
 
-    private static String run(MinecraftServer server, String command) {
+    private static String run(MinecraftServer server, String command, InetAddress from) {
         if (!command.equals("baranuschaos") && !command.startsWith("baranuschaos ")) return "Unknown or incomplete command";
         try {
-            return server.submit(() -> execute(server, command)).get(10, TimeUnit.SECONDS);
+            return server.submit(() -> {
+                String reply = execute(server, command);
+                // К статусу — ник «своего» стримера: приложению больше не нужно вписывать его вручную.
+                return command.equals("baranuschaos status") && reply.startsWith("BaranusChaos:STATUS ")
+                    ? reply + " " + whoIs(server, from) : reply;
+            }).get(10, TimeUnit.SECONDS);
         } catch (Exception error) {
             return "BaranusChaos:ERROR failed";
         }
+    }
+
+    /**
+     * Чей это стример: приложение на этом ПК — хозяин одиночного мира (или единственный игрок с этого ПК
+     * на сервере), приложение друга — игрок, чья игра подключена с того же адреса Radmin. «-» — не определить.
+     */
+    private static String whoIs(MinecraftServer server, InetAddress from) {
+        if (from.isLoopbackAddress() && server.getSingleplayerProfile() != null) return server.getSingleplayerProfile().getName();
+        String address = from.getHostAddress();
+        java.util.List<String> matches = new java.util.ArrayList<>();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            String ip = player.getIpAddress();
+            boolean same = from.isLoopbackAddress() ? ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.equals("local") : ip.equals(address);
+            if (same) matches.add(player.getGameProfile().getName());
+        }
+        return matches.size() == 1 ? matches.get(0) : "-";
     }
 
     private static String execute(MinecraftServer server, String command) {

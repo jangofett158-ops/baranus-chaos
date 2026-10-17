@@ -138,7 +138,6 @@ p { margin: 0; }
 .field.code-field { width: 160px; }
 .field.code-field input { text-transform: uppercase; letter-spacing: .08em; }
 .field.code-field input::placeholder { text-transform: none; letter-spacing: 0; }
-.friend-code-hint { margin-top: -4px; }
 .money { position: relative; display: flex; }
 .money input { width: 100%; padding-right: 34px; }
 .money .cur { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--muted); font-weight: 700; }
@@ -274,8 +273,6 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .step-head h2 { margin: 0; font-size: 18px; }
 .step-n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; color: #fff; background: linear-gradient(130deg, var(--accent), var(--accent-3)); }
 .da-box { display: flex; flex-direction: column; gap: 14px; }
-.da-steps { display: flex; gap: 8px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
-.da-steps span { padding: 6px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); }
 .da-profile { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: rgba(52, 226, 154, .08); border: 1px solid rgba(52, 226, 154, .3); }
 .da-profile img, .da-profile .avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: var(--panel-3); display: grid; place-items: center; font-weight: 900; }
 .da-profile .who { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -356,12 +353,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .modal-head h2 { margin: 0; font-size: 18px; }
 .icon-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line-2); background: none; color: var(--muted); }
 .icon-close:hover { color: var(--text); border-color: var(--accent); }
-.icon-field { width: 86px; }
-.icon-field input { text-align: center; font-size: 22px; }
 .price-field { width: 140px; }
-.emoji-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
-.emoji-row button { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); font-size: 17px; }
-.emoji-row button:hover { border-color: var(--accent); }
 .field textarea { padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line-2); background: #0e0a0b; color: var(--text); font: 13px/1.5 Consolas, monospace; text-transform: none; letter-spacing: 0; resize: vertical; outline: none; }
 .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 38, 58, .25); }
 .modal:not(.is-custom) .custom-only, .modal.is-custom .builtin-only { display: none; }

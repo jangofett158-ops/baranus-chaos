@@ -4,8 +4,8 @@
 
 ## ⬇️ Скачать
 
-- **Приложение для Windows (x64):** [Baranus-Chaos-1.5.0.exe](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.5.0/Baranus-Chaos-1.5.0.exe)
-- **Мод для Minecraft 1.20.1 (Forge):** [baranus-chaos-forge-1.5.0.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.5.0/baranus-chaos-forge-1.5.0.jar)
+- **Приложение для Windows (x64):** [Baranus-Chaos-1.5.1.exe](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.5.1/Baranus-Chaos-1.5.1.exe)
+- **Мод для Minecraft 1.20.1 (Forge):** [baranus-chaos-forge-1.5.1.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.5.1/baranus-chaos-forge-1.5.1.jar)
 
 Все версии — на странице [Releases](https://github.com/jangofett158-ops/baranus-chaos/releases). Архивы «Source code (zip / tar.gz)» там — это исходный код, для игры они не нужны: скачивайте `.exe` и `.jar` из блока **Assets**.
 
@@ -13,8 +13,8 @@
 
 ## Установка
 
-1. Положите `baranus-chaos-forge-1.5.0.jar` в папку `mods` своего Minecraft (и сервера, если играете на сервере). Нужны Minecraft 1.20.1, Forge 47.4.10+ и Java 17. При совместной игре мод нужен обоим стримерам.
-2. Запустите `Baranus-Chaos-1.5.0.exe`
+1. Положите `baranus-chaos-forge-1.5.1.jar` в папку `mods` своего Minecraft (и сервера, если играете на сервере). Нужны Minecraft 1.20.1, Forge 47.4.10+ и Java 17. При совместной игре мод нужен обоим стримерам.
+2. Запустите `Baranus-Chaos-1.5.1.exe`
 
 ## Подключение
 
