@@ -232,6 +232,11 @@ function renderMcResult() {
   const {mc, settings} = S;
   const result = $('#mc-result');
   const kinds = {online: 'ok', version: 'warn', error: 'bad', simulate: 'sim'};
+  // Режим переключён, но ещё не сохранён — старое сообщение («Мир не запущен» и т.п.) только путает.
+  if (mcMode && mcMode !== settings.minecraft.mode) {
+    result.replaceChildren(h('div', {class: 'result sim'}, 'Заполните поля и нажмите «Сохранить и проверить».'));
+    return;
+  }
   let text = mc.message;
   if (mc.state === 'online') text = `✓ Мод ${mc.version} отвечает. В сети: ${mc.players.join(', ') || 'никого'}.`;
   if (mc.state === 'online' && settings.minecraft.player && !mc.playerOnline) text += ` Игрок ${settings.minecraft.player} сейчас не в сети.`;
@@ -601,7 +606,7 @@ function fillForms() {
   mcForm.player.value = minecraft.player;
   mcForm.friendHost.value = minecraft.friendHost || '';
   mcForm.friendCode.value = '';
-  mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён — оставьте пустым' : 'ABCD2345';
+  mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён' : '8 букв и цифр';
   mcForm.simulate.checked = minecraft.simulate;
   mcForm.password.value = '';
   mcForm.password.placeholder = minecraft.hasPassword ? 'Сохранён — оставьте пустым' : 'rcon.password из server.properties';
@@ -710,6 +715,7 @@ function setMcMode(mode) {
   $('#mc-form').classList.toggle('local', mode === 'local');
   $('#coop').hidden = mode !== 'local';
   $$('#mc-mode button').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+  if (S) renderMcResult();
 }
 $('#mc-mode').addEventListener('click', event => {
   const button = event.target.closest('button[data-mode]');

@@ -168,11 +168,12 @@
             </div>
             <p class="hint local-only">Запустите Minecraft с модом и откройте любой мир — одиночный или свой сервер на этом ПК. Приложение подключится само, пароль не нужен.</p>
             <div class="friend-only stack">
-              <p class="hint">Играете в мире другого стримера через Radmin VPN. Возьмите у него адрес Radmin и код доступа — они видны у него в «Подключениях» в блоке «Совместная игра». Настройки событий подтянутся из его мира автоматически.</p>
+              <p class="hint">Играете в мире другого стримера через Radmin VPN. Настройки событий подтянутся из его мира автоматически.</p>
               <div class="row">
-                <label class="field grow">Адрес друга в Radmin<input name="friendHost" placeholder="26.12.34.56"></label>
-                <label class="field port">Код доступа<input name="friendCode" autocomplete="off" maxlength="16" placeholder="ABCD2345"></label>
+                <label class="field grow">Адрес друга в Radmin<input name="friendHost" placeholder="26.x.x.x"></label>
+                <label class="field code-field">Код доступа<input name="friendCode" autocomplete="off" maxlength="16" placeholder="8 букв и цифр"></label>
               </div>
+              <p class="hint friend-code-hint"><b>Где взять код:</b> у друга, который открыл мир, — в его приложении Baranus Chaos: «Подключения» → «Совместная игра» → включить «Разрешить подключение друга». Там же его адрес Radmin. Это <b>не порт</b>: порт из чата Minecraft нужен только самой игре, чтобы зайти в мир («Сетевая игра» → адрес:порт).</p>
             </div>
             <div class="rcon-only stack">
               <div class="row">

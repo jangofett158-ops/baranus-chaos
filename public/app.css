@@ -135,6 +135,10 @@ p { margin: 0; }
 .field input:focus, .select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 38, 58, .25); }
 .field input[type=color] { padding: 4px; width: 64px; }
 .field.port { width: 130px; }
+.field.code-field { width: 160px; }
+.field.code-field input { text-transform: uppercase; letter-spacing: .08em; }
+.field.code-field input::placeholder { text-transform: none; letter-spacing: 0; }
+.friend-code-hint { margin-top: -4px; }
 .money { position: relative; display: flex; }
 .money input { width: 100%; padding-right: 34px; }
 .money .cur { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--muted); font-weight: 700; }
