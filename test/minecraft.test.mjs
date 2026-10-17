@@ -49,8 +49,8 @@ test('своё событие: команда в base64url и понятная �
 test('статус мода: версия, пауза и игроки', async () => {
   const bridge = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 1 Steve,Alex'});
   assert.deepEqual(await bridge.status(connection), {version: '1.0.0', paused: true, players: ['Steve', 'Alex'], revision: 0, remote: false});
-  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.4.0 0 Steve 7 1'});
-  assert.deepEqual(await fresh.status(connection), {version: '1.4.0', paused: false, players: ['Steve'], revision: 7, remote: true});
+  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.4.1 0 Steve 7 1'});
+  assert.deepEqual(await fresh.status(connection), {version: '1.4.1', paused: false, players: ['Steve'], revision: 7, remote: true});
   const empty = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 0 -'});
   assert.deepEqual((await empty.status(connection)).players, []);
 });

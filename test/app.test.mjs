@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.4.0 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.4.1 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -430,6 +430,55 @@ test('синхронизация: настройки первого стриме
   } finally { await host.stop(); await guest.stop(); }
 });
 
+test('синхронизация: свои настройки не затираются миром при первом подключении, перед заменой есть копия', async () => {
+  const world = {revision: 0, config: ''};
+  const other = await connected(fakeMinecraft({world}));
+  for (let i = 0; i < 100 && (await other.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20));
+  await other.stop();
+  const before = world.revision;
+  assert.ok(before >= 1, 'в мире уже лежат чужие (стандартные) настройки');
+
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'baranus-app-'));
+  fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({events: {zombie: {price: 77, enabled: true}}}));
+  const host = await start({dataDir, send: fakeMinecraft({world}).send});
+  const guest = await start({send: fakeMinecraft({world}).send});
+  try {
+    await host.post('/api/minecraft', {mode: 'local', player: 'Streamer', simulate: false});
+    for (let i = 0; i < 100 && world.revision <= before; i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.ok(world.revision > before, 'приложение хозяина отдало свои настройки в мир');
+    assert.equal(JSON.parse(Buffer.from(world.config, 'base64url').toString('utf8')).events.zombie.price, 77);
+    assert.equal((await host.get('/api/state')).catalog.find(item => item.code === 'zombie').price, 77);
+
+    await guest.post('/api/minecraft', {mode: 'friend', friendHost: '26.10.20.30', friendCode: 'abcd2345', player: 'Friend', simulate: false});
+    for (let i = 0; i < 100 && (await guest.get('/api/state')).sync.revision !== world.revision; i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal((await guest.get('/api/state')).catalog.find(item => item.code === 'zombie').price, 77, 'друг получил настройки хозяина');
+    const backups = fs.readdirSync(path.join(guest.dataDir, 'backups'));
+    assert.equal(backups.length, 1);
+    const saved = JSON.parse(fs.readFileSync(path.join(guest.dataDir, 'backups', backups[0]), 'utf8'));
+    assert.equal(saved.events.zombie?.price ?? 20, 20, 'в копии — прежние настройки друга');
+  } finally { await host.stop(); await guest.stop(); }
+});
+
+test('синхронизация: одновременные правки двух стримеров не теряются', async () => {
+  const world = {revision: 0, config: ''};
+  const host = await connected(fakeMinecraft({world}));
+  const guest = await connected(fakeMinecraft({world}));
+  const idle = async ctx => { for (let i = 0; i < 150 && (await ctx.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20)); };
+  try {
+    await idle(host); await idle(guest);
+    await guest.post('/api/minecraft/check'); await host.post('/api/minecraft/check');
+    const saved = await host.post('/api/events/save', {name: 'Курица', icon: '🐔', price: 33, commands: 'summon minecraft:chicken ~ ~1 ~'});
+    await guest.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, cooldown: 40});
+    await idle(host); await idle(guest);
+    for (const ctx of [host, guest, host]) { await ctx.post('/api/minecraft/check'); await idle(ctx); }
+    for (const ctx of [host, guest]) {
+      const state = await ctx.get('/api/state');
+      assert.ok(state.catalog.some(item => item.code === saved.body.savedCode), 'своё событие хозяина на месте');
+      assert.equal(state.catalog.find(item => item.code === 'zombie').cooldown, 40, 'перезарядка от друга на месте');
+    }
+  } finally { await host.stop(); await guest.stop(); }
+});
+
 test('мир друга: подключение по адресу Radmin с кодом доступа', async () => {
   const calls = [];
   const base = fakeMinecraft();
@@ -451,5 +500,7 @@ test('совместная игра: хозяин включает доступ 
     const enabled = await ctx.post('/api/remote', {enable: true});
     assert.deepEqual([enabled.body.remote.enabled, enabled.body.remote.code], [true, 'ABCD2345']);
     assert.ok(Array.isArray(enabled.body.remote.addresses));
+    await ctx.post('/api/minecraft', {mode: 'friend', friendHost: '26.10.20.30', friendCode: 'wxyz2345', player: 'Friend', simulate: false});
+    assert.equal(JSON.stringify(await ctx.get('/api/state')).includes('ABCD2345'), false, 'в режиме «Мир друга» код хозяина не показывается');
   } finally { await ctx.stop(); }
 });

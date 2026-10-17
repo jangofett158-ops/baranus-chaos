@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn} from '../lib/settings.mjs';
+import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared} from '../lib/settings.mjs';
 
 test('своё событие: создание, проверка команд, удаление', () => {
   const base = defaultSettings();
@@ -73,4 +73,24 @@ test('повреждённые разделы с диска заменяются
   assert.equal(loaded.events.zombie.price, 33);
   assert.equal(loaded.events.pig.price, 15);
   assert.equal(loaded.overlay.duration, 6);
+});
+
+test('совместная игра: правки двух стримеров сливаются, а не затирают друг друга', () => {
+  const base = exportShared(defaultSettings());
+  const host = exportShared(applyPatch(defaultSettings(), {
+    customEvents: {c_0000beef: {name: 'Курица', icon: '🐔', desc: '', commands: 'summon minecraft:chicken ~ ~1 ~'}},
+    events: {pig: {price: 10, enabled: true}}
+  }));
+  const world = exportShared(applyPatch(applyPatch(defaultSettings(), {events: {zombie: {price: 20, enabled: true, cooldown: 40}}}), {queue: {delay: 15, gap: 3}}));
+  const merged = mergeShared(base, host, world);
+  assert.equal(merged.customEvents.c_0000beef.name, 'Курица', 'своё новое событие осталось');
+  assert.equal(merged.events.pig.price, 10, 'своя правка цены осталась');
+  assert.equal(merged.events.zombie.cooldown, 40, 'правка друга подтянулась');
+  assert.deepEqual(merged.queue, {delay: 15, gap: 3});
+
+  const removed = structuredClone(base);
+  const withHen = mergeShared(base, base, host);
+  assert.ok(withHen.customEvents.c_0000beef, 'новое событие друга появилось');
+  assert.equal(mergeShared(host, host, removed).customEvents.c_0000beef, undefined, 'удаление другом тоже доходит');
+  assert.deepEqual(mergeShared(null, host, world), host, 'без общей точки — свои настройки');
 });

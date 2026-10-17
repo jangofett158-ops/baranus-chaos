@@ -35,7 +35,9 @@ public final class LocalBridge {
         stop();
         try {
             boolean remote = ChaosState.get(server).remote();
-            ServerSocket socket = remote ? new ServerSocket(PORT, 16) : new ServerSocket(PORT, 16, InetAddress.getLoopbackAddress());
+            // Именно 127.0.0.1: на выделенном сервере Java предпочитает IPv6, и getLoopbackAddress() дал бы ::1, недоступный приложению.
+            ServerSocket socket = remote ? new ServerSocket(PORT, 16)
+                : new ServerSocket(PORT, 16, InetAddress.getByAddress(new byte[] {127, 0, 0, 1}));
             listener = socket;
             Thread thread = new Thread(() -> acceptLoop(socket, server), "Baranus Chaos bridge");
             thread.setDaemon(true);

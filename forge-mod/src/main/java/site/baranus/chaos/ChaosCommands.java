@@ -10,6 +10,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
@@ -169,9 +170,13 @@ public final class ChaosCommands {
                 @Override public boolean acceptsFailure() { return true; }
                 @Override public boolean shouldInformAdmins() { return false; }
             };
+            // Успех — по флагу Brigadier, а не по числу: «gamerule … false» и подобные успешно возвращают 0.
+            AtomicBoolean succeeded = new AtomicBoolean();
             CommandSourceStack stack = new CommandSourceStack(collector, target.position(), target.getRotationVector(), target.serverLevel(),
-                2, target.getName().getString(), target.getDisplayName(), source.getServer(), target);
-            if (source.getServer().getCommands().performPrefixedCommand(stack, command) > 0) ok++;
+                2, target.getName().getString(), target.getDisplayName(), source.getServer(), target)
+                .withCallback((ctx, success, result) -> { if (success) succeeded.set(true); });
+            source.getServer().getCommands().performPrefixedCommand(stack, command);
+            if (succeeded.get()) ok++;
             else if (failure == null) failure = output.toString().trim().replaceAll("\\s+", " ");
         }
         if (ok == 0) {
