@@ -12,6 +12,24 @@ function openExternal(url) {
   } catch { /* некорректная ссылка */ }
 }
 
+/** Ссылки наружу — в системный браузер; окно событий (?popout=events) — отдельным окном приложения. */
+function guard(contents) {
+  contents.setWindowOpenHandler(({url}) => {
+    if (url.startsWith(ORIGIN + '/?popout=')) {
+      return {action: 'allow', overrideBrowserWindowOptions: {
+        width: 1180, height: 820, minWidth: 720, minHeight: 500, backgroundColor: '#0b0809', title: 'События — Baranus Chaos',
+        autoHideMenuBar: true, icon: path.join(__dirname, 'public', 'icon.png'),
+        webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}
+      }};
+    }
+    openExternal(url);
+    return {action: 'deny'};
+  });
+  contents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(ORIGIN + '/')) { event.preventDefault(); openExternal(url); }
+  });
+}
+
 function focusWindow() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
@@ -41,9 +59,11 @@ else {
         icon: path.join(__dirname, 'public', 'icon.png'),
         webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}
       });
-      win.webContents.setWindowOpenHandler(({url}) => { openExternal(url); return {action: 'deny'}; });
-      win.webContents.on('will-navigate', (event, url) => {
-        if (!url.startsWith(ORIGIN + '/')) { event.preventDefault(); openExternal(url); }
+      guard(win.webContents);
+      // «События в отдельном окне» — окно приложения, а не внешний браузер.
+      win.webContents.on('did-create-window', child => {
+        child.setMenuBarVisibility(false);
+        guard(child.webContents);
       });
       await win.loadURL(ORIGIN + '/');
       if (process.env.BARANUS_SMOKE_REPORT) {

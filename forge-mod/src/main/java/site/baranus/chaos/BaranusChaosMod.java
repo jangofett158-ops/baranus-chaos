@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 @Mod(BaranusChaosMod.MOD_ID)
 public final class BaranusChaosMod {
     public static final String MOD_ID = "baranuschaos";
-    public static final String VERSION = "1.3.0";
+    public static final String VERSION = "1.4.0";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public BaranusChaosMod() {

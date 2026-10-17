@@ -15,9 +15,11 @@ test('ник зрителя очищается и передаётся в base64
 
 test('trigger отправляет строгую команду и требует подтверждения мода', async () => {
   const sent = [];
-  const bridge = new MinecraftBridge({send: async ({command}) => { sent.push(command); return 'BaranusChaos:OK zombie Streamer'; }});
+  const bridge = new MinecraftBridge({send: async ({command}) => { sent.push(command); return `BaranusChaos:OK ${command.split(' ')[2]} Streamer`; }});
   await bridge.trigger(connection, 'zombie', 'Streamer', 'Вася');
-  assert.equal(sent[0], `baranuschaos trigger zombie Streamer ${donorToken('Вася')}`);
+  assert.equal(sent[0], `baranuschaos trigger zombie Streamer ${donorToken('Вася')} 0 0 0`);
+  await bridge.trigger(connection, 'speed', '@a', 'Вася', {params: {seconds: 60, level: 3}});
+  assert.equal(sent[1], `baranuschaos trigger speed @a ${donorToken('Вася')} 0 60 3`);
   await assert.rejects(() => bridge.trigger(connection, 'random', 'Streamer', 'x'), /Неизвестное/);
   await assert.rejects(() => bridge.trigger(connection, 'zombie', 'Bad Name', 'x'), /ник/);
 });
@@ -46,7 +48,9 @@ test('своё событие: команда в base64url и понятная �
 
 test('статус мода: версия, пауза и игроки', async () => {
   const bridge = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 1 Steve,Alex'});
-  assert.deepEqual(await bridge.status(connection), {version: '1.0.0', paused: true, players: ['Steve', 'Alex']});
+  assert.deepEqual(await bridge.status(connection), {version: '1.0.0', paused: true, players: ['Steve', 'Alex'], revision: 0, remote: false});
+  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.4.0 0 Steve 7 1'});
+  assert.deepEqual(await fresh.status(connection), {version: '1.4.0', paused: false, players: ['Steve'], revision: 7, remote: true});
   const empty = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 0 -'});
   assert.deepEqual((await empty.status(connection)).players, []);
 });

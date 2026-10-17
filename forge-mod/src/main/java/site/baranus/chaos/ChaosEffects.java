@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -114,7 +115,16 @@ public final class ChaosEffects {
         }
     }
 
-    public static void execute(String code, ServerPlayer player, String donor) {
+    /** Настройки события из приложения: количество, длительность (сек) и уровень. 0 — значение по умолчанию. */
+    public record Params(int count, int seconds, int level) {
+        public static final Params DEFAULT = new Params(0, 0, 0);
+        int count(int fallback) { return count > 0 ? Math.min(count, 64) : fallback; }
+        int seconds(int fallback) { return seconds > 0 ? Math.min(seconds, 3600) : fallback; }
+        int level(int fallback) { return level > 0 ? Math.min(level, 10) : fallback; }
+    }
+
+    /** Выполнить событие для одного игрока. Объявление — отдельно, через announceAll (один раз для всех). */
+    public static void execute(String code, ServerPlayer player, String donor, Params p) {
         Info info = EFFECTS.get(code);
         if (info == null) throw new ChaosException("unknown");
         if (player.isSpectator()) throw new ChaosException("spectator");
@@ -124,53 +134,63 @@ public final class ChaosEffects {
         switch (code) {
             case "heal" -> { player.setHealth(player.getMaxHealth()); player.clearFire(); }
             case "food" -> player.getFoodData().eat(20, 1.0F);
-            case "speed" -> effect(player, MobEffects.MOVEMENT_SPEED, 30, 1);
-            case "buff" -> { effect(player, MobEffects.DAMAGE_BOOST, 30, 0); effect(player, MobEffects.DAMAGE_RESISTANCE, 30, 0); }
-            case "gift" -> give(player, randomGift(player.getRandom()));
-            case "diamond" -> give(player, new ItemStack(Items.DIAMOND, 2));
-            case "wolf" -> {
-                Wolf wolf = spawnNear(EntityType.WOLF, level, player, donor, 2, 4, false, false);
-                wolf.tame(player);
-                wolf.setOrderedToSit(false);
+            case "speed" -> effect(player, MobEffects.MOVEMENT_SPEED, p.seconds(30), p.level(2) - 1);
+            case "buff" -> {
+                effect(player, MobEffects.DAMAGE_BOOST, p.seconds(30), p.level(1) - 1);
+                effect(player, MobEffects.DAMAGE_RESISTANCE, p.seconds(30), p.level(1) - 1);
             }
-            case "golem" -> spawnNear(EntityType.IRON_GOLEM, level, player, donor, 3, 5, false, false).setPlayerCreated(true);
-            case "blind" -> effect(player, MobEffects.BLINDNESS, 10, 0);
-            case "drunk" -> effect(player, MobEffects.CONFUSION, 15, 0);
-            case "darkness" -> effect(player, MobEffects.DARKNESS, 15, 0);
-            case "freeze" -> { effect(player, MobEffects.MOVEMENT_SLOWDOWN, 8, 6); effect(player, MobEffects.DIG_SLOWDOWN, 8, 3); }
+            case "gift" -> { for (int i = 0; i < p.count(1); i++) give(player, randomGift(player.getRandom())); }
+            case "diamond" -> give(player, new ItemStack(Items.DIAMOND, p.count(2)));
+            case "wolf" -> {
+                for (int i = 0; i < p.count(1); i++) {
+                    Wolf wolf = spawnNear(EntityType.WOLF, level, player, donor, 2, 4, false, false);
+                    wolf.tame(player);
+                    wolf.setOrderedToSit(false);
+                }
+            }
+            case "golem" -> { for (int i = 0; i < p.count(1); i++) spawnNear(EntityType.IRON_GOLEM, level, player, donor, 3, 5, false, false).setPlayerCreated(true); }
+            case "blind" -> effect(player, MobEffects.BLINDNESS, p.seconds(10), 0);
+            case "drunk" -> effect(player, MobEffects.CONFUSION, p.seconds(15), 0);
+            case "darkness" -> effect(player, MobEffects.DARKNESS, p.seconds(15), 0);
+            case "freeze" -> { effect(player, MobEffects.MOVEMENT_SLOWDOWN, p.seconds(8), 6); effect(player, MobEffects.DIG_SLOWDOWN, p.seconds(8), 3); }
             case "launch" -> {
                 Vec3 motion = player.getDeltaMovement();
-                player.setDeltaMovement(motion.x, 1.4D, motion.z);
+                player.setDeltaMovement(motion.x, 0.6D + 0.4D * p.level(2), motion.z);
                 player.hurtMarked = true;
-                effect(player, MobEffects.SLOW_FALLING, 10, 0);
+                effect(player, MobEffects.SLOW_FALLING, 6 + 2 * p.level(2), 0);
             }
             case "drop" -> dropHeld(player);
             case "hotbar" -> shuffleHotbar(player);
-            case "pig" -> spawnNear(EntityType.PIG, level, player, donor, 2, 3, false, false);
-            case "zombie" -> { requireHostile(level); spawnNear(EntityType.ZOMBIE, level, player, donor, 3, 5, true, true); }
-            case "skeleton" -> { requireHostile(level); spawnNear(EntityType.SKELETON, level, player, donor, 5, 8, true, true); }
-            case "creeper" -> { requireHostile(level); spawnNear(EntityType.CREEPER, level, player, donor, 3, 5, false, true); }
-            case "chickenrain" -> chickenRain(level, player);
-            case "lightning" -> lightning(level, player);
-            case "faketnt" -> fakeTnt(level, player, donor);
+            case "pig" -> { for (int i = 0; i < p.count(1); i++) spawnNear(EntityType.PIG, level, player, donor, 2, 3, false, false); }
+            case "zombie" -> { requireHostile(level); for (int i = 0; i < p.count(1); i++) spawnNear(EntityType.ZOMBIE, level, player, donor, 3, 5, true, true); }
+            case "skeleton" -> { requireHostile(level); for (int i = 0; i < p.count(1); i++) spawnNear(EntityType.SKELETON, level, player, donor, 5, 8, true, true); }
+            case "creeper" -> { requireHostile(level); for (int i = 0; i < p.count(1); i++) spawnNear(EntityType.CREEPER, level, player, donor, 3, 5, false, true); }
+            case "chickenrain" -> chickenRain(level, player, p.count(8));
+            case "lightning" -> { for (int i = 0; i < p.count(1); i++) lightning(level, player); }
+            case "faketnt" -> { for (int i = 0; i < p.count(1); i++) fakeTnt(level, player, donor); }
             case "night" -> {
                 long time = overworld.getDayTime();
                 long night = time - Math.floorMod(time, 24000L) + 13000L;
                 overworld.setDayTime(night <= time ? night + 24000L : night);
             }
-            case "storm" -> overworld.setWeatherParameters(0, 20 * 120, true, true);
+            case "storm" -> overworld.setWeatherParameters(0, 20 * p.seconds(120), true, true);
             default -> throw new ChaosException("unknown");
         }
-        announce(player, info, donor);
     }
 
-    public static void announce(ServerPlayer player, Info info, String donor) {
-        player.connection.send(new ClientboundSetTitlesAnimationPacket(4, 40, 12));
-        player.connection.send(new ClientboundSetTitleTextPacket(Component.literal(info.label()).withStyle(info.color(), ChatFormatting.BOLD)));
-        player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("от " + donor).withStyle(ChatFormatting.WHITE)));
-        player.sendSystemMessage(Component.literal("[Хаос] ").withStyle(ChatFormatting.DARK_RED)
+    /** Надпись на экране и сообщение в чате — всем игрокам в мире (оба стримера видят каждое событие). */
+    public static void announceAll(MinecraftServer server, Info info, String donor) {
+        Component title = Component.literal(info.label()).withStyle(info.color(), ChatFormatting.BOLD);
+        Component subtitle = Component.literal("от " + donor).withStyle(ChatFormatting.WHITE);
+        Component chat = Component.literal("[Хаос] ").withStyle(ChatFormatting.DARK_RED)
             .append(Component.literal(donor).withStyle(ChatFormatting.RED))
-            .append(Component.literal(" → " + info.label()).withStyle(ChatFormatting.GRAY)));
+            .append(Component.literal(" → " + info.label()).withStyle(ChatFormatting.GRAY));
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(4, 40, 12));
+            player.connection.send(new ClientboundSetTitleTextPacket(title));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
+            player.sendSystemMessage(chat);
+        }
     }
 
     private static void requireHostile(ServerLevel level) {
@@ -253,11 +273,11 @@ public final class ChaosEffects {
         return mob;
     }
 
-    private static void chickenRain(ServerLevel level, ServerPlayer player) {
-        for (int i = 0; i < 8; i++) {
+    private static void chickenRain(ServerLevel level, ServerPlayer player, int count) {
+        for (int i = 0; i < count; i++) {
             Mob chicken = EntityType.CHICKEN.create(level);
             if (chicken == null) continue;
-            double angle = Math.PI * 2 * i / 8;
+            double angle = Math.PI * 2 * i / count;
             chicken.moveTo(player.getX() + Math.cos(angle) * 3, player.getY() + 6, player.getZ() + Math.sin(angle) * 3, 0, 0);
             chicken.addTag(CHAOS_TAG);
             level.addFreshEntity(chicken);

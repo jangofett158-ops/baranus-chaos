@@ -8,12 +8,26 @@ import {createApp} from '../lib/app.mjs';
 
 const publicDir = new URL('../public', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 
-function fakeMinecraft({delayMs = 0} = {}) {
+function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0, config: ''}, claimWait = () => 0} = {}) {
   const log = [];
   let active = 0, maxActive = 0;
+  const uploads = {};
   const send = async ({command}) => {
     log.push(command);
-    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.3.0 0 Streamer';
+    const words = command.split(' ');
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.4.0 0 ${players} ${world.revision} 0`;
+    if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
+    if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
+    if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
+    if (words[1] === 'sync' && words[2] === 'put') {
+      const [id, index, total, data] = [words[3], Number(words[4]), Number(words[5]), words[6]];
+      (uploads[id] ||= [])[index] = data;
+      if (uploads[id].filter(Boolean).length < total) return `BaranusChaos:PART ${index}`;
+      world.config = uploads[id].join('');
+      world.revision++;
+      return `BaranusChaos:SYNCED ${world.revision}`;
+    }
+    if (words[1] === 'remote') return `BaranusChaos:REMOTE ${words[2] === 'on' ? 1 : 0} ABCD2345`;
     active++; maxActive = Math.max(maxActive, active);
     await new Promise(resolve => setTimeout(resolve, delayMs));
     active--;
@@ -21,12 +35,12 @@ function fakeMinecraft({delayMs = 0} = {}) {
     if (action === 'custom' || action === 'customtest') return `BaranusChaos:OK custom ${code}`;
     return `BaranusChaos:OK ${code} ${player}`;
   };
-  return {send, log, get maxActive() { return maxActive; }};
+  return {send, log, world, get maxActive() { return maxActive; }};
 }
 
 async function start(options = {}) {
   const dataDir = options.dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'baranus-app-'));
-  const app = createApp({dataDir, publicDir, port: 0, statusIntervalMs: 60_000, ratesIntervalMs: 0, ...options});
+  const app = createApp({dataDir, publicDir, port: 0, statusIntervalMs: 60_000, ratesIntervalMs: 0, queueTickMs: 10, ...options});
   const port = await app.listen();
   const base = `http://127.0.0.1:${port}`;
   const post = async (route, body = {}, headers = {}) => {
@@ -43,6 +57,7 @@ async function connected(minecraft, options = {}) {
     const saved = await ctx.post('/api/minecraft', {mode: 'rcon', host: '127.0.0.1', port: 25575, password: 'rcon-secret', player: 'Streamer', simulate: false});
     assert.equal(saved.status, 200);
     assert.equal(saved.body.mc.state, 'online', saved.body.mc.message);
+    if (!options.keepQueue) await ctx.post('/api/settings', {queue: {delay: 0, gap: 0}});
     return ctx;
   } catch (error) {
     await ctx.stop();
@@ -50,16 +65,25 @@ async function connected(minecraft, options = {}) {
   }
 }
 
+/** Дождаться, пока очередь выполнит все события. */
+async function settle(ctx) {
+  for (let i = 0; i < 200; i++) {
+    if (!(await ctx.get('/api/state')).queue.length) break;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  await new Promise(resolve => setTimeout(resolve, 20));
+}
+async function donate(ctx, payload) { await ctx.app.onDonation(payload); await settle(ctx); }
+
 const donation = (id, amount, extra = {}) => ({seq: id, data: {id, amount, currency: 'RUB', username: 'Аня', message: '', ...extra}});
 
-test('донаты выполняются сразу и параллельно — без очереди', async () => {
-  const minecraft = fakeMinecraft({delayMs: 120});
+test('очередь: донаты выполняются по одному, в порядке поступления', async () => {
+  const minecraft = fakeMinecraft({delayMs: 30});
   const ctx = await connected(minecraft);
   try {
-    const started = Date.now();
     await Promise.all([ctx.app.onDonation(donation(1, 20)), ctx.app.onDonation(donation(2, 149)), ctx.app.onDonation(donation(3, 15))]);
-    assert.ok(Date.now() - started < 300, 'три доната не ждут друг друга');
-    assert.equal(minecraft.maxActive, 3);
+    await settle(ctx);
+    assert.equal(minecraft.maxActive, 1, 'события не идут одновременно');
     const {history} = await ctx.get('/api/state');
     assert.deepEqual(history.filter(item => item.state === 'done').map(item => item.code).sort(), ['golem', 'pig', 'zombie']);
     assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger golem Streamer ')));
@@ -70,9 +94,9 @@ test('повторный донат с тем же ID и сумма без со�
   const minecraft = fakeMinecraft();
   const ctx = await connected(minecraft);
   try {
-    await ctx.app.onDonation(donation(10, 20));
-    await ctx.app.onDonation(donation(10, 20));
-    await ctx.app.onDonation(donation(11, 21));
+    await donate(ctx, donation(10, 20));
+    await donate(ctx, donation(10, 20));
+    await donate(ctx, donation(11, 21));
     const {history} = await ctx.get('/api/state');
     assert.equal(history.filter(item => item.donationId === '10').length, 1);
     assert.equal(history.find(item => item.donationId === '11').state, 'ignored');
@@ -85,7 +109,7 @@ test('пауза: донат пропускается, потом его мож�
   const ctx = await connected(minecraft);
   try {
     assert.equal((await ctx.post('/api/settings', {paused: true})).body.settings.paused, true);
-    await ctx.app.onDonation(donation(20, 60));
+    await donate(ctx, donation(20, 60));
     let {history} = await ctx.get('/api/state');
     const skipped = history.find(item => item.donationId === '20');
     assert.equal(skipped.state, 'skipped');
@@ -104,9 +128,11 @@ test('тест события обходит паузу в игре, тесто�
   const ctx = await connected(minecraft);
   try {
     assert.equal((await ctx.post('/api/test/effect', {code: 'wolf'})).body.ok, true);
-    assert.ok(minecraft.log.includes(`baranuschaos test wolf Streamer ${Buffer.from('Тест').toString('base64url')}`));
+    assert.ok(minecraft.log.includes(`baranuschaos test wolf Streamer ${Buffer.from('Тест').toString('base64url')} 1 0 0`));
     const result = await ctx.post('/api/test/donation', {amount: 79, username: 'Петя'});
     assert.equal(result.body.code, 'wolf');
+    assert.equal(result.body.queued, true);
+    await settle(ctx);
     assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger wolf Streamer')));
     assert.equal((await ctx.post('/api/test/donation', {amount: 3})).status, 422);
   } finally { await ctx.stop(); }
@@ -122,7 +148,7 @@ test('создание своего события в интерфейсе и з
     const code = created.body.savedCode;
     assert.match(code, /^c_[a-z0-9]+$/);
     assert.equal(created.body.catalog.find(item => item.code === code).name, 'Вечеринка');
-    await ctx.app.onDonation(donation(60, 333, {username: 'Аня'}));
+    await donate(ctx, donation(60, 333, {username: 'Аня'}));
     const customCalls = minecraft.log.filter(command => command.startsWith('baranuschaos custom Streamer '));
     assert.equal(customCalls.length, 2);
     const [, , , label, donor, command] = customCalls[0].split(' ');
@@ -157,7 +183,7 @@ test('зритель из другой страны: курс подтягива
     assert.equal(saved.body.settings.extraCurrencies.USD.rate, 10);
     assert.equal(saved.body.rates.state, 'ok');
     assert.equal(saved.body.catalog.find(item => item.code === 'golem').prices.USD, 15); // 149 ₽ / 10 = 14,9 → 15 $
-    await ctx.app.onDonation({id: 70, amount: 15, currency: 'USD', username: 'John'});
+    await donate(ctx, {id: 70, amount: 15, currency: 'USD', username: 'John'});
     const {history} = await ctx.get('/api/state');
     const entry = history.find(item => item.donationId === '70');
     assert.equal(entry.state, 'done');
@@ -165,16 +191,20 @@ test('зритель из другой страны: курс подтягива
     assert.equal(entry.currency, 'USD');
     const test = await ctx.post('/api/test/donation', {amount: 15, currency: 'USD'});
     assert.equal(test.body.code, 'golem');
+    await settle(ctx);
   } finally { await ctx.stop(); }
 });
 
 test('ошибка мода видна в ленте, донат можно повторить', async () => {
   let fail = true;
-  const send = async ({command}) => command === 'baranuschaos status' ? 'BaranusChaos:STATUS 1.3.0 0 Streamer'
-    : fail ? 'No player was found' : `BaranusChaos:OK ${command.split(' ')[2]} Streamer`;
+  const base = fakeMinecraft();
+  const send = async request => {
+    if (!request.command.includes(' trigger ')) return base.send(request);
+    return fail ? 'No player was found' : `BaranusChaos:OK ${request.command.split(' ')[2]} Streamer`;
+  };
   const ctx = await connected({send});
   try {
-    await ctx.app.onDonation(donation(30, 20));
+    await donate(ctx, donation(30, 20));
     const failed = (await ctx.get('/api/state')).history.find(item => item.donationId === '30');
     assert.equal(failed.state, 'failed');
     assert.match(failed.reason, /не в сети/);
@@ -228,17 +258,15 @@ const fakeSocket = () => ({addEventListener() {}, send() {}, close() {}});
 
 test('локальный мир: без пароля, мост 127.0.0.1:25585, единственный игрок выбирается сам', async () => {
   const calls = [];
-  const send = async ({host, port, password, command}) => {
-    calls.push({host, port, password, command});
-    if (command === 'baranuschaos status') return 'BaranusChaos:STATUS 1.3.0 0 Streamer';
-    return `BaranusChaos:OK ${command.split(' ')[2]} Streamer`;
-  };
+  const base = fakeMinecraft();
+  const send = async request => { calls.push(request); return base.send(request); };
   const ctx = await start({send});
   try {
+    await ctx.post('/api/settings', {queue: {delay: 0, gap: 0}});
     const saved = await ctx.post('/api/minecraft', {mode: 'local', player: '', simulate: false});
     assert.equal(saved.body.mc.state, 'online');
     assert.equal(saved.body.mc.target, 'Streamer');
-    await ctx.app.onDonation(donation(50, 20));
+    await donate(ctx, donation(50, 20));
     const trigger = calls.find(call => call.command.startsWith('baranuschaos trigger'));
     assert.equal(trigger.port, 25585);
     assert.equal(trigger.host, '127.0.0.1');
@@ -322,9 +350,106 @@ test('перенос настроек из версии 0.4.0', async () => {
   const ctx = await start({dataDir, send: fakeMinecraft().send, fetchImpl: async () => ({ok: false, status: 500, text: async () => ''}), websocketFactory: () => ({addEventListener() {}, close() {}})});
   try {
     const {settings} = await ctx.get('/api/state');
-    assert.deepEqual(settings.minecraft, {mode: 'local', host: '10.0.0.5', port: 25580, player: 'Baranus', simulate: false, hasPassword: true});
+    assert.deepEqual(settings.minecraft, {mode: 'local', host: '10.0.0.5', port: 25580, friendHost: '', player: 'Baranus', simulate: false, hasPassword: true, hasFriendCode: false});
     assert.equal(settings.daClientId, '12345');
     assert.deepEqual(settings.events.zombie, {price: 33, enabled: false});
     assert.equal(settings.overlay.position, 'top-right');
+  } finally { await ctx.stop(); }
+});
+
+test('очередь: задержка после доната, запуск сразу и отмена', async () => {
+  const minecraft = fakeMinecraft();
+  const ctx = await connected(minecraft, {keepQueue: true});
+  try {
+    await ctx.post('/api/settings', {queue: {delay: 30, gap: 5}});
+    await ctx.app.onDonation(donation(80, 20));
+    await ctx.app.onDonation(donation(81, 15));
+    let state = await ctx.get('/api/state');
+    assert.equal(state.queue.length, 2);
+    assert.ok(state.queue[0].dueAt - Date.now() > 25_000, 'событие ждёт ~30 секунд');
+    assert.equal(minecraft.log.some(command => command.includes(' trigger ')), false);
+    const run = await ctx.post('/api/queue/run', {id: state.queue[0].id});
+    assert.equal(run.body.code, 'zombie');
+    const cancel = await ctx.post('/api/queue/cancel', {id: state.queue[1].id});
+    assert.equal(cancel.body.queue.length, 0);
+    state = await ctx.get('/api/state');
+    const cancelled = state.history.find(item => item.donationId === '81');
+    assert.equal(cancelled.state, 'skipped');
+    assert.equal((await ctx.post('/api/replay', {id: cancelled.id})).body.code, 'pig');
+  } finally { await ctx.stop(); }
+});
+
+test('очередь ждёт, пока мод разрешит запуск (пауза между событиями и перезарядка)', async () => {
+  let waits = 2;
+  const minecraft = fakeMinecraft({claimWait: () => (waits-- > 0 ? 20 : 0)});
+  const ctx = await connected(minecraft);
+  try {
+    await donate(ctx, donation(90, 20));
+    assert.equal(minecraft.log.filter(command => command.startsWith('baranuschaos claim zombie 0 0')).length, 3);
+    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger zombie Streamer ')));
+  } finally { await ctx.stop(); }
+});
+
+test('кому срабатывает: эффекты — всем (@a), мобы — получателю; сила и длительность уходят в мод', async () => {
+  const minecraft = fakeMinecraft({players: 'Streamer,Friend'});
+  const ctx = await connected(minecraft);
+  try {
+    await ctx.post('/api/events/save', {code: 'speed', name: 'Скорость', icon: '⚡', price: 25, seconds: 60, level: 3});
+    await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, count: 3});
+    await donate(ctx, donation(100, 25));
+    await donate(ctx, donation(101, 20));
+    const speed = minecraft.log.find(command => command.startsWith('baranuschaos trigger speed '));
+    const zombie = minecraft.log.find(command => command.startsWith('baranuschaos trigger zombie '));
+    assert.match(speed, /^baranuschaos trigger speed @a \S+ 0 60 3$/);
+    assert.match(zombie, /^baranuschaos trigger zombie Streamer \S+ 3 0 0$/);
+    await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, target: 'all'});
+    await donate(ctx, donation(102, 20));
+    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger zombie @a ')));
+  } finally { await ctx.stop(); }
+});
+
+test('синхронизация: настройки первого стримера попадают ко второму через мир', async () => {
+  const world = {revision: 0, config: ''};
+  const host = await connected(fakeMinecraft({world}));
+  const guest = await connected(fakeMinecraft({world}));
+  try {
+    await host.post('/api/events/save', {code: 'zombie', name: 'Мертвяк', icon: '💀', price: 33, count: 2, cooldown: 60});
+    await host.post('/api/settings', {queue: {delay: 25, gap: 7}});
+    for (let i = 0; i < 100 && (await host.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.ok(world.revision > 0);
+    await guest.post('/api/minecraft/check');
+    for (let i = 0; i < 100 && (await guest.get('/api/state')).sync.revision !== world.revision; i++) await new Promise(resolve => setTimeout(resolve, 20));
+    const synced = await guest.get('/api/state');
+    const zombie = synced.catalog.find(item => item.code === 'zombie');
+    assert.equal(zombie.name, 'Мертвяк');
+    assert.equal(zombie.price, 33);
+    assert.equal(zombie.params.count, 2);
+    assert.equal(zombie.cooldown, 60);
+    assert.deepEqual(synced.settings.queue, {delay: 25, gap: 7});
+    assert.equal(synced.settings.minecraft.player, 'Streamer', 'личные настройки не трогаются');
+  } finally { await host.stop(); await guest.stop(); }
+});
+
+test('мир друга: подключение по адресу Radmin с кодом доступа', async () => {
+  const calls = [];
+  const base = fakeMinecraft();
+  const ctx = await start({send: async request => { calls.push(request); return base.send(request); }});
+  try {
+    assert.equal((await ctx.post('/api/minecraft', {mode: 'friend', friendHost: '26.10.20.30', friendCode: 'abcd2345', player: 'Friend', simulate: false})).body.mc.state, 'online');
+    const status = calls.filter(call => call.command === 'baranuschaos status').at(-1);
+    assert.deepEqual([status.host, status.port, status.password], ['26.10.20.30', 25585, 'ABCD2345']);
+    const state = JSON.stringify(await ctx.get('/api/state'));
+    assert.equal(state.includes('ABCD2345'), false, 'код друга не уходит в интерфейс');
+    assert.equal((await ctx.post('/api/remote', {enable: true})).status, 400, 'совместную игру включает хозяин мира');
+  } finally { await ctx.stop(); }
+});
+
+test('совместная игра: хозяин включает доступ и видит код', async () => {
+  const ctx = await start({send: fakeMinecraft().send});
+  try {
+    await ctx.post('/api/minecraft', {mode: 'local', player: 'Streamer', simulate: false});
+    const enabled = await ctx.post('/api/remote', {enable: true});
+    assert.deepEqual([enabled.body.remote.enabled, enabled.body.remote.code], [true, 'ABCD2345']);
+    assert.ok(Array.isArray(enabled.body.remote.addresses));
   } finally { await ctx.stop(); }
 });

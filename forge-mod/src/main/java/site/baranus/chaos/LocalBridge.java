@@ -20,9 +20,10 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Локальный мост для одиночной игры (и сервера на этом же ПК): протокол RCON на 127.0.0.1:25585.
- * В одиночном мире настоящего RCON нет, поэтому приложение Baranus Chaos подключается сюда.
- * Слушает только loopback и выполняет только команды «baranuschaos ...».
+ * Мост для приложения Baranus Chaos: протокол RCON на порту 25585 (в одиночном мире настоящего RCON нет).
+ * По умолчанию слушает только этот ПК (127.0.0.1) и пускает без пароля. Если хозяин включил «доступ друга»
+ * (совместная игра через Radmin VPN), слушает все адреса, а подключения не с этого ПК пускает только с кодом доступа.
+ * Выполняет только команды «baranuschaos ...».
  */
 public final class LocalBridge {
     public static final int PORT = 25585;
@@ -33,12 +34,13 @@ public final class LocalBridge {
     public static synchronized void start(MinecraftServer server) {
         stop();
         try {
-            ServerSocket socket = new ServerSocket(PORT, 16, InetAddress.getLoopbackAddress());
+            boolean remote = ChaosState.get(server).remote();
+            ServerSocket socket = remote ? new ServerSocket(PORT, 16) : new ServerSocket(PORT, 16, InetAddress.getLoopbackAddress());
             listener = socket;
             Thread thread = new Thread(() -> acceptLoop(socket, server), "Baranus Chaos bridge");
             thread.setDaemon(true);
             thread.start();
-            BaranusChaosMod.LOGGER.info("Baranus Chaos: local bridge on 127.0.0.1:{}", PORT);
+            BaranusChaosMod.LOGGER.info("Baranus Chaos: bridge on {}:{}", remote ? "0.0.0.0" : "127.0.0.1", PORT);
         } catch (IOException error) {
             BaranusChaosMod.LOGGER.warn("Baranus Chaos: port {} is busy, local bridge disabled ({})", PORT, error.getMessage());
         }
@@ -64,6 +66,8 @@ public final class LocalBridge {
     }
 
     private static void serve(Socket client, MinecraftServer server) {
+        boolean local = client.getInetAddress().isLoopbackAddress();
+        boolean authed = local;
         try (client; DataInputStream in = new DataInputStream(client.getInputStream()); OutputStream out = client.getOutputStream()) {
             client.setSoTimeout(15_000);
             while (true) {
@@ -75,13 +79,21 @@ public final class LocalBridge {
                 in.readFully(payload);
                 in.readFully(new byte[2]);
                 if (type == 3) {
-                    write(out, id, 2, ""); // локальный мост: пароль не нужен
+                    // С этого ПК — без пароля; по сети — только с кодом доступа из приложения хозяина.
+                    if (!local) {
+                        String password = new String(payload, StandardCharsets.UTF_8).trim().toUpperCase(java.util.Locale.ROOT);
+                        authed = ChaosState.get(server).remote() && password.equals(ChaosState.get(server).accessCode());
+                        if (!authed) Thread.sleep(800); // замедляем подбор кода
+                    }
+                    write(out, authed ? id : -1, 2, "");
+                    if (!authed) return;
                 } else if (type == 2) {
+                    if (!authed) return;
                     String command = new String(payload, StandardCharsets.UTF_8).trim();
                     write(out, id, 0, run(server, command));
                 }
             }
-        } catch (IOException ignored) {
+        } catch (IOException | InterruptedException ignored) {
             // клиент закрыл соединение
         }
     }

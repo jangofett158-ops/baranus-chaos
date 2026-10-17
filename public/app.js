@@ -120,6 +120,8 @@ function renderStatus() {
 
   renderDaBox();
   renderMcResult();
+  renderQueue();
+  renderCoop();
 }
 
 function renderDaBox() {
@@ -178,6 +180,54 @@ async function reconnect() {
   try { apply(await api('/api/da/reconnect')); } catch (error) { toast(error.message, 'bad'); }
 }
 
+function renderQueue() {
+  const queue = S.queue || [];
+  $('#queue-count').textContent = queue.length ? `${queue.length} шт.` : '';
+  if (!queue.length) {
+    $('#queue-list').replaceChildren(h('p', {class: 'muted queue-empty'}, S.settings.paused ? 'Хаос на паузе.' : 'Пусто — новые донаты появятся здесь.'));
+    return;
+  }
+  $('#queue-list').replaceChildren(...queue.map(item => {
+    const left = Math.max(0, Math.round((Math.max(item.dueAt, item.retryAt || 0) - Date.now()) / 1000));
+    return h('div', {class: 'queue-item'},
+      h('div', {class: 'queue-main'},
+        h('b', {}, effectOf(item.code)?.name || item.code),
+        h('small', {}, `${item.donor || 'Зритель'}${item.amount != null ? ' · ' + money(item.amount, item.currency) : ''}${item.note ? ' · ' + item.note : ''}`)),
+      h('span', {class: 'queue-time'}, S.settings.paused ? 'пауза' : left ? `через ${left} с` : 'сейчас'),
+      h('button', {class: 'fx-test', type: 'button', title: 'Запустить сейчас', onclick: () => queueAction('run', item)}, '▶'),
+      h('button', {class: 'fx-test', type: 'button', title: 'Отменить', onclick: () => queueAction('cancel', item)}, '✕'));
+  }));
+}
+
+async function queueAction(action, item) {
+  try { apply(await api(`/api/queue/${action}`, {id: item.id})); toast(action === 'run' ? 'Событие запущено' : 'Убрано из очереди', 'ok'); }
+  catch (error) { toast(error.message, 'bad'); }
+}
+setInterval(() => { if (S?.queue?.length) renderQueue(); }, 1000);
+
+function renderCoop() {
+  const {remote = {}, sync = {}, mc} = S;
+  const syncText = sync.state === 'error' ? sync.message : sync.revision ? `Настройки синхронизированы (версия ${sync.revision})` : '';
+  $('#sync-state').textContent = syncText;
+  $('#sync-state').className = `sync-state ${sync.state === 'error' ? 'bad' : 'ok'}`;
+  const box = $('#coop-box');
+  if (mc.state !== 'online') { box.replaceChildren(h('p', {class: 'muted'}, 'Откройте мир, чтобы включить совместную игру.')); return; }
+  const addresses = remote.addresses?.length ? remote.addresses.join(', ') : 'не найден — включите Radmin VPN';
+  box.replaceChildren(
+    h('label', {class: 'switch-row'},
+      h('input', {type: 'checkbox', checked: !!mc.remote, onchange: event => toggleRemote(event.target.checked)}), h('span', {class: 'switch'}),
+      h('span', {}, h('b', {}, 'Разрешить подключение друга'), h('small', {}, 'Его приложение сможет запускать события в вашем мире'))),
+    mc.remote ? h('div', {class: 'coop-info'},
+      h('div', {}, h('span', {class: 'muted'}, 'Ваш адрес Radmin: '), h('b', {}, addresses)),
+      h('div', {}, h('span', {class: 'muted'}, 'Код доступа: '), h('b', {class: 'code'}, remote.code || '…'),
+        remote.code ? h('button', {class: 'link-btn', type: 'button', onclick: () => copy(`Адрес: ${remote.addresses?.[0] || ''}\nКод: ${remote.code}`, 'Адрес и код скопированы')}, ' Скопировать') : null)) : null);
+}
+
+async function toggleRemote(enable) {
+  try { apply(await api('/api/remote', {enable})); toast(enable ? 'Друг может подключаться' : 'Подключение друга выключено', 'ok'); }
+  catch (error) { toast(error.message, 'bad'); renderCoop(); }
+}
+
 function renderMcResult() {
   const {mc, settings} = S;
   const result = $('#mc-result');
@@ -203,11 +253,39 @@ function duplicates() {
   return counts;
 }
 
+const POPOUT = new URLSearchParams(location.search).get('popout') === 'events';
+let layout = 'grid', search = '', sortMode = 'catalog';
+try { layout = localStorage.getItem('baranus-layout') || 'grid'; sortMode = localStorage.getItem('baranus-sort') || 'catalog'; } catch { /* без памяти */ }
+
+const TARGET_LABEL = {receiver: 'получателю', all: 'всем'};
+/** Коротко о настройках события: кому, количество/длительность/уровень, перезарядка. */
+function eventMeta(effect) {
+  const parts = [effect.target === 'all' ? '👥 всем стримерам' : '👤 получателю доната'];
+  if (effect.params?.count) parts.push(`×${effect.params.count}`);
+  if (effect.params?.seconds) parts.push(`${effect.params.seconds} с`);
+  if (effect.params?.level) parts.push(`ур. ${effect.params.level}`);
+  if (effect.cooldown) parts.push(`⏱ раз в ${effect.cooldown} с`);
+  return parts.join(' · ');
+}
+
+function visibleEvents() {
+  const query = search.trim().toLowerCase();
+  const list = S.catalog.filter(effect => (filter === 'all' || effect.category === filter)
+    && (!query || effect.name.toLowerCase().includes(query) || effect.code.includes(query) || (effect.desc || '').toLowerCase().includes(query)));
+  if (sortMode === 'price-asc') list.sort((a, b) => priceOf(a.code) - priceOf(b.code));
+  if (sortMode === 'price-desc') list.sort((a, b) => priceOf(b.code) - priceOf(a.code));
+  if (sortMode === 'name') list.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  return list;
+}
+
 function renderEvents() {
   const {settings, catalog, categories} = S;
   $('#currency').value = settings.currency;
   renderCurrencies();
   $('#code-trigger').checked = settings.codeTrigger;
+  for (const [id, key] of [['#queue-delay', 'delay'], ['#queue-gap', 'gap']]) if (document.activeElement !== $(id)) $(id).value = settings.queue[key];
+  $$('#fx-layout button').forEach(button => button.classList.toggle('active', button.dataset.layout === layout));
+  $('#fx-sort').value = sortMode;
   const counts = duplicates();
 
   const all = [{id: 'all', name: 'Все'}, ...categories];
@@ -217,39 +295,91 @@ function renderEvents() {
       category.name, h('span', {class: 'count'}, total));
   }));
 
-  // Не перерисовываем сетку, пока пользователь вводит цену.
+  // Не перерисовываем, пока пользователь вводит цену.
   if (document.activeElement?.closest?.('#fx-grid input[type=number]')) return;
-  const visible = catalog.filter(effect => filter === 'all' || effect.category === filter);
-  const createCard = h('button', {class: 'fx fx-create', type: 'button', onclick: () => openEditor(null)},
-    h('span', {class: 'plus'}, '＋'), h('b', {}, 'Создать событие'), h('small', {}, 'Своё событие из команд Minecraft'));
-  $('#fx-grid').replaceChildren(...visible.map(effect => fxCard(effect, counts)), ...(filter === 'all' || filter === 'custom' ? [createCard] : []));
+  const grid = $('#fx-grid');
+  grid.className = layout === 'list' ? 'fx-list' : 'fx-grid';
+  const visible = visibleEvents();
+  const create = layout === 'list'
+    ? h('button', {class: 'fx-row fx-row-create', type: 'button', onclick: () => openEditor(null)}, '＋ Создать событие')
+    : h('button', {class: 'fx fx-create', type: 'button', onclick: () => openEditor(null)},
+      h('span', {class: 'plus'}, '＋'), h('b', {}, 'Создать событие'), h('small', {}, 'Своё событие из команд Minecraft'));
+  const items = visible.map(effect => (layout === 'list' ? fxRow : fxCard)(effect, counts));
+  grid.replaceChildren(...items, ...(items.length ? [] : [h('p', {class: 'muted empty-search'}, 'Ничего не найдено.')]),
+    ...((filter === 'all' || filter === 'custom') && !search ? [create] : []));
   renderPriceStrip();
 }
+
+function enabledSwitch(effect, config) {
+  return h('label', {class: 'switch-row', title: config.enabled ? 'Выключить событие' : 'Включить событие'},
+    h('input', {type: 'checkbox', checked: config.enabled, onchange: event => save({events: {[effect.code]: {enabled: event.target.checked}}})}),
+    h('span', {class: 'switch'}));
+}
+
+function priceInput(effect, config) {
+  return h('label', {class: 'fx-price', title: 'Цена события'},
+    h('input', {type: 'number', min: '1', step: '1', value: config.price, 'aria-label': `Цена: ${effect.name}`,
+      onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
+      onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
+    h('em', {}, SYMBOL[S.settings.currency] || S.settings.currency));
+}
+
+function extraPrices(effect) {
+  return Object.keys(effect.prices || {}).length
+    ? h('button', {class: 'fx-prices', type: 'button', title: 'Цены в других валютах — нажмите, чтобы изменить', onclick: () => openEditor(effect.code)},
+      ...Object.entries(effect.prices).map(([currency, price]) => h('span', {class: effect.manual?.includes(currency) ? 'manual' : ''}, money(price, currency))))
+    : null;
+}
+
+const actionButtons = effect => [
+  h('button', {class: 'fx-test fx-edit', type: 'button', title: 'Настроить событие', onclick: () => openEditor(effect.code)}, '✎'),
+  h('button', {class: 'fx-test', type: 'button', title: 'Запустить в игре сейчас', onclick: event => testEffect(effect, event.currentTarget)}, '▶')
+];
 
 function fxCard(effect, counts) {
   const config = S.settings.events[effect.code];
   const same = config.enabled ? counts.get(cents(config.price)) : 0;
   return h('article', {class: `fx ${config.enabled ? '' : 'off'}`, dataset: {code: effect.code}},
     h('div', {class: 'fx-top'},
-      h('div', {class: 'fx-icon'}, effect.icon),
-      h('label', {class: 'switch-row', title: config.enabled ? 'Выключить событие' : 'Включить событие'},
-        h('input', {type: 'checkbox', checked: config.enabled, onchange: event => save({events: {[effect.code]: {enabled: event.target.checked}}})}),
-        h('span', {class: 'switch'}))),
+      h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
+      enabledSwitch(effect, config)),
     same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена — выпадет случайное'}, `🎲 ×${same}`) : null,
-    h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
-    h('div', {class: 'fx-code'}, '!' + effect.code),
-    h('div', {class: 'fx-bottom'},
-      h('label', {class: 'fx-price', title: 'Цена события'},
-        h('input', {type: 'number', min: '1', step: '1', value: config.price, 'aria-label': `Цена: ${effect.name}`,
-          onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
-          onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
-        h('em', {}, SYMBOL[S.settings.currency] || S.settings.currency)),
-      h('button', {class: 'fx-test fx-edit', type: 'button', title: 'Редактировать', onclick: () => openEditor(effect.code)}, '✎'),
-      h('button', {class: 'fx-test', type: 'button', title: 'Запустить в игре сейчас', onclick: event => testEffect(effect, event.currentTarget)}, '▶')),
-    Object.keys(effect.prices || {}).length ? h('button', {class: 'fx-prices', type: 'button', title: 'Цены в других валютах — нажмите, чтобы изменить', onclick: () => openEditor(effect.code)},
-      ...Object.entries(effect.prices).map(([currency, price]) =>
-        h('span', {class: effect.manual?.includes(currency) ? 'manual' : ''}, money(price, currency)))) : null);
+    h('div', {class: 'fx-meta'}, eventMeta(effect)),
+    h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
+    extraPrices(effect));
+}
+
+function fxRow(effect, counts) {
+  const config = S.settings.events[effect.code];
+  const same = config.enabled ? counts.get(cents(config.price)) : 0;
+  return h('div', {class: `fx-row ${config.enabled ? '' : 'off'}`, dataset: {code: effect.code}},
+    enabledSwitch(effect, config),
+    h('div', {class: 'fx-row-main'},
+      h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null,
+        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена — выпадет случайное'}, `🎲 ×${same}`) : null),
+      h('div', {class: 'fx-meta'}, eventMeta(effect))),
+    extraPrices(effect) || h('span'),
+    priceInput(effect, config),
+    ...actionButtons(effect));
+}
+
+$('#fx-search').addEventListener('input', event => { search = event.target.value; renderEvents(); });
+$('#fx-sort').addEventListener('change', event => {
+  sortMode = event.target.value;
+  try { localStorage.setItem('baranus-sort', sortMode); } catch { /* без памяти */ }
+  renderEvents();
+});
+$('#fx-layout').addEventListener('click', event => {
+  const button = event.target.closest('button[data-layout]');
+  if (!button) return;
+  layout = button.dataset.layout;
+  try { localStorage.setItem('baranus-layout', layout); } catch { /* без памяти */ }
+  renderEvents();
+});
+$('#popout').addEventListener('click', () => window.open('/?popout=events', 'baranus-events', 'width=1180,height=820'));
+for (const [id, key] of [['#queue-delay', 'delay'], ['#queue-gap', 'gap']]) {
+  $(id).addEventListener('change', event => save({queue: {[key]: Number(event.target.value)}}, key === 'delay' ? 'Задержка сохранена' : 'Пауза сохранена'));
 }
 
 // ---------- Валюты ----------
@@ -314,6 +444,12 @@ function openEditor(code) {
   form.price.value = effect ? priceOf(effect.code) : suggestPrice();
   form.enabled.checked = effect ? effect.enabled : true;
   form.commands.value = effect?.commands?.join('\n') || '';
+  form.target.value = effect?.target || 'receiver';
+  form.cooldown.value = effect?.cooldown || '';
+  // Сила и длительность — только у встроенных событий, где они есть.
+  $('#editor-params').replaceChildren(...Object.entries(effect?.schema || {}).map(([param, [min, max]]) =>
+    h('label', {class: 'field price-field'}, S.paramNames?.[param] || param,
+      h('input', {type: 'number', min: String(min), max: String(max), step: '1', 'data-param': param, value: effect.params[param]}))));
   form.commands.required = custom;
   const remove = $('#editor-delete');
   remove.hidden = !effect || (!custom && !effect.renamed);
@@ -346,7 +482,9 @@ $('#event-form').addEventListener('submit', async event => {
   const form = event.target.elements;
   const body = {code: editing?.code, icon: form.icon.value, name: form.name.value, desc: form.desc.value,
     price: Number(form.price.value), enabled: form.enabled.checked,
-    prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)]))};
+    prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)])),
+    target: form.target.value, cooldown: Number(form.cooldown.value || 0),
+    ...Object.fromEntries($$('#editor-params input[data-param]').map(input => [input.dataset.param, Number(input.value)]))};
   if (!editing || editing.custom) body.commands = form.commands.value;
   try {
     apply(await api('/api/events/save', body));
@@ -461,6 +599,9 @@ function fillForms() {
   mcForm.host.value = minecraft.host;
   mcForm.port.value = minecraft.port;
   mcForm.player.value = minecraft.player;
+  mcForm.friendHost.value = minecraft.friendHost || '';
+  mcForm.friendCode.value = '';
+  mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён — оставьте пустым' : 'ABCD2345';
   mcForm.simulate.checked = minecraft.simulate;
   mcForm.password.value = '';
   mcForm.password.placeholder = minecraft.hasPassword ? 'Сохранён — оставьте пустым' : 'rcon.password из server.properties';
@@ -521,7 +662,9 @@ $('#test-donation').addEventListener('submit', async event => {
   button.disabled = true;
   try {
     const result = await api('/api/test/donation', {amount: Number(form.amount.value), currency: form.currency.value, username: form.username.value});
-    toast(`${effectOf(result.code)?.name || 'Событие'}${result.simulated ? ' (симуляция)' : ' — в игре'}`, 'ok');
+    const name = effectOf(result.code)?.name || 'Событие';
+    const wait = result.dueAt ? Math.max(0, Math.round((result.dueAt - Date.now()) / 1000)) : 0;
+    toast(result.queued ? `${name} — в очереди${wait ? `, через ${wait} с` : ''}` : `${name}${result.simulated ? ' (симуляция)' : ' — в игре'}`, 'ok');
   } catch (error) { toast(error.message, 'bad'); }
   finally { button.disabled = false; }
 });
@@ -539,6 +682,7 @@ $('#mc-form').addEventListener('submit', async event => {
   button.textContent = 'Проверяю…';
   try {
     apply(await api('/api/minecraft', {mode: mcMode, host: form.host.value.trim(), port: Number(form.port.value) || undefined,
+      friendHost: form.friendHost.value.trim(), friendCode: form.friendCode.value.trim(),
       password: form.password.value, player: form.player.value.trim(), simulate: form.simulate.checked}));
     fillForms();
     const {mc} = S;
@@ -562,7 +706,9 @@ $('#client-form').addEventListener('submit', async event => {
 let mcMode = 'local';
 function setMcMode(mode) {
   mcMode = mode;
+  $('#mc-form').dataset.mode = mode;
   $('#mc-form').classList.toggle('local', mode === 'local');
+  $('#coop').hidden = mode !== 'local';
   $$('#mc-mode button').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
 }
 $('#mc-mode').addEventListener('click', event => {
@@ -589,6 +735,9 @@ function connectStream() {
     } else if (message.type === 'dalog') {
       S.da.log = [...(S.da.log || []), message.line].slice(-12);
       if (S.da.state !== 'online') renderDaBox();
+    } else if (message.type === 'queue') {
+      S.queue = message.queue;
+      renderQueue();
     } else if (message.type === 'replayed') {
       const item = S.history.find(entry => entry.id === message.id);
       if (item) { item.replayed = true; renderFeed(); }
@@ -604,6 +753,7 @@ async function init() {
   connectStream();
   let view = 'dashboard';
   try { view = localStorage.getItem('baranus-view') || view; } catch { /* без памяти */ }
+  if (POPOUT) { document.body.classList.add('popout'); document.title = 'События — Baranus Chaos'; show('events'); return; }
   show($(`#view-${view}`) ? view : 'dashboard');
 }
 
