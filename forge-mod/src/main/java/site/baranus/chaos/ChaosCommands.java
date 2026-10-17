@@ -42,6 +42,12 @@ public final class ChaosCommands {
             .then(Commands.literal("pause").executes(context -> setPaused(context.getSource(), true)))
             .then(Commands.literal("resume").executes(context -> setPaused(context.getSource(), false)))
             .then(Commands.literal("panel").executes(context -> panel(context.getSource())))
+            .then(Commands.literal("try")
+                .then(Commands.argument("code", StringArgumentType.word())
+                    .executes(context -> tryEvent(context.getSource(), StringArgumentType.getString(context, "code")))))
+            .then(Commands.literal("toggle")
+                .then(Commands.argument("code", StringArgumentType.word())
+                    .executes(context -> toggle(context.getSource(), StringArgumentType.getString(context, "code")))))
             .then(Commands.literal("cleanup")
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(context -> cleanup(context.getSource(), EntityArgument.getPlayer(context, "target")))))
@@ -162,22 +168,9 @@ public final class ChaosCommands {
         String failure = null;
         int ok = 0;
         for (ServerPlayer target : targets) {
-            String command = template.replace("{player}", target.getGameProfile().getName()).replace("{donor}", donor);
-            StringBuilder output = new StringBuilder();
-            CommandSource collector = new CommandSource() {
-                @Override public void sendSystemMessage(Component message) { output.append(message.getString()).append(' '); }
-                @Override public boolean acceptsSuccess() { return true; }
-                @Override public boolean acceptsFailure() { return true; }
-                @Override public boolean shouldInformAdmins() { return false; }
-            };
-            // Успех — по флагу Brigadier, а не по числу: «gamerule … false» и подобные успешно возвращают 0.
-            AtomicBoolean succeeded = new AtomicBoolean();
-            CommandSourceStack stack = new CommandSourceStack(collector, target.position(), target.getRotationVector(), target.serverLevel(),
-                2, target.getName().getString(), target.getDisplayName(), source.getServer(), target)
-                .withCallback((ctx, success, result) -> { if (success) succeeded.set(true); });
-            source.getServer().getCommands().performPrefixedCommand(stack, command);
-            if (succeeded.get()) ok++;
-            else if (failure == null) failure = output.toString().trim().replaceAll("\\s+", " ");
+            String result = runAs(target, template, donor);
+            if (result == null) ok++;
+            else if (failure == null) failure = result;
         }
         if (ok == 0) {
             source.sendFailure(Component.literal("BaranusChaos:ERROR command " + (failure == null || failure.isEmpty() ? "-" : failure)));
@@ -189,6 +182,64 @@ public final class ChaosCommands {
                 ChaosEffects.announceAll(source.getServer(), new ChaosEffects.Info(label.replace("§", ""), ChatFormatting.RED), donor);
         }
         return reply(source, "BaranusChaos:OK custom " + ok, "Своё событие выполнено");
+    }
+
+    /** Команда своего события от имени игрока (уровень прав 2). null — успех, иначе текст ошибки Minecraft. */
+    private static String runAs(ServerPlayer target, String template, String donor) {
+        String command = template.replace("{player}", target.getGameProfile().getName()).replace("{donor}", donor);
+        if (command.startsWith("/")) command = command.substring(1);
+        StringBuilder output = new StringBuilder();
+        CommandSource collector = new CommandSource() {
+            @Override public void sendSystemMessage(Component message) { output.append(message.getString()).append(' '); }
+            @Override public boolean acceptsSuccess() { return true; }
+            @Override public boolean acceptsFailure() { return true; }
+            @Override public boolean shouldInformAdmins() { return false; }
+        };
+        // Успех — по флагу Brigadier, а не по числу: «gamerule … false» и подобные успешно возвращают 0.
+        AtomicBoolean succeeded = new AtomicBoolean();
+        CommandSourceStack stack = new CommandSourceStack(collector, target.position(), target.getRotationVector(), target.serverLevel(),
+            2, target.getName().getString(), target.getDisplayName(), target.server, target)
+            .withCallback((ctx, success, result) -> { if (success) succeeded.set(true); });
+        target.server.getCommands().performPrefixedCommand(stack, command);
+        return succeeded.get() ? null : output.toString().trim().replaceAll("\\s+", " ");
+    }
+
+    // ---------- Меню событий в игре ----------
+
+    /** Проверить событие на себе с силой и длительностью из настроек приложения (встроенное, своё или случайное). */
+    private static int tryEvent(CommandSourceStack source, String code) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) return error(source, "menu-requires-player");
+        MinecraftServer server = source.getServer();
+        String effect = "random".equals(code) ? ChaosCatalog.randomEnabled(server, new java.util.Random()) : code;
+        if (effect == null) return error(source, "nothing-enabled");
+        if (ChaosEffects.EFFECTS.containsKey(effect)) {
+            try {
+                ChaosEffects.execute(effect, player, "Тест", ChaosCatalog.params(server, effect));
+            } catch (ChaosEffects.ChaosException failure) {
+                return error(source, failure.getMessage());
+            }
+            ChaosEffects.announceAll(server, ChaosEffects.EFFECTS.get(effect), "Тест");
+            return reply(source, "BaranusChaos:OK " + effect + " " + player.getGameProfile().getName(),
+                "Проверка: «" + ChaosEffects.EFFECTS.get(effect).label() + "»");
+        }
+        List<String> commands = ChaosCatalog.commands(server, code);
+        if (commands.isEmpty()) return error(source, "unknown");
+        String failure = null;
+        for (String command : commands) {
+            String result = runAs(player, command, "Тест");
+            if (result != null && failure == null) failure = result;
+        }
+        ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(code)).findFirst().ifPresent(entry ->
+            ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));
+        if (failure != null) source.sendFailure(Component.literal("Команда не выполнилась: " + failure));
+        return reply(source, "BaranusChaos:OK custom " + code, "Проверка своего события");
+    }
+
+    /** Включить или выключить событие из меню — изменение уходит в общие настройки и в оба приложения. */
+    private static int toggle(CommandSourceStack source, String code) {
+        if (!ChaosCatalog.toggle(source.getServer(), code)) return error(source, "no-config");
+        ChaosNetwork.broadcastState(source.getServer());
+        return reply(source, "BaranusChaos:TOGGLED " + code, "Событие переключено");
     }
 
     // ---------- Очередь, синхронизация, доступ друга ----------
@@ -220,9 +271,9 @@ public final class ChaosCommands {
             int revision = ChaosState.get(source.getServer()).putPart(StringArgumentType.getString(context, "upload"),
                 IntegerArgumentType.getInteger(context, "index"), IntegerArgumentType.getInteger(context, "total"),
                 StringArgumentType.getString(context, "data"));
-            return revision < 0
-                ? reply(source, "BaranusChaos:PART " + IntegerArgumentType.getInteger(context, "index"), "Часть принята")
-                : reply(source, "BaranusChaos:SYNCED " + revision, "Настройки сохранены");
+            if (revision < 0) return reply(source, "BaranusChaos:PART " + IntegerArgumentType.getInteger(context, "index"), "Часть принята");
+            ChaosNetwork.broadcastState(source.getServer()); // открытое меню сразу показывает новые цены
+            return reply(source, "BaranusChaos:SYNCED " + revision, "Настройки сохранены");
         } catch (IllegalArgumentException error) {
             return error(source, error.getMessage());
         }

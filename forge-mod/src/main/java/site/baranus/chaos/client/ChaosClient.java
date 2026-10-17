@@ -24,8 +24,8 @@ public final class ChaosClient {
         while (PANEL_KEY.consumeClick()) {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player == null || minecraft.getConnection() == null || minecraft.screen != null) continue;
-            minecraft.setScreen(new ChaosPanelScreen());
-            send("baranuschaos panel");
+            minecraft.setScreen(new ChaosMenuScreen());
+            ChaosNetwork.requestMenu();
         }
     }
 
@@ -35,6 +35,6 @@ public final class ChaosClient {
     }
 
     public static void accept(ChaosNetwork.StatePacket packet) {
-        if (Minecraft.getInstance().screen instanceof ChaosPanelScreen panel) panel.apply(packet);
+        if (Minecraft.getInstance().screen instanceof ChaosMenuScreen menu) menu.apply(packet);
     }
 }

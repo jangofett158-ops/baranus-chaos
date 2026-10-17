@@ -78,6 +78,15 @@ public final class ChaosState extends SavedData {
         return revision;
     }
 
+    /** Настройки, изменённые в самой игре (меню событий): новая ревизия, приложения подтянут её сами. */
+    public synchronized int replaceConfig(String encoded) {
+        if (encoded.length() > MAX_CONFIG) throw new IllegalArgumentException("too-big");
+        config = encoded;
+        revision++;
+        setDirty();
+        return revision;
+    }
+
     // ---------- Доступ друга (Radmin) ----------
     public boolean remote() { return remote; }
 
