@@ -50,7 +50,7 @@ public final class ChaosCatalog {
         new Def("faketnt", "Фейковый TNT", "chaos", 85, "Шипит и «взрывается» без разрушений"),
         new Def("night", "Ночь", "chaos", 65, "Мгновенно наступает ночь"),
         new Def("storm", "Гроза", "chaos", 99, "Гроза"),
-        new Def("random", "Случайное событие", "chaos", 100, "Любое включённое событие наугад"));
+        new Def("random", "Случайный ивент", "chaos", 100, "Любой включённый ивент наугад"));
 
     /** Эти события по умолчанию срабатывают у всех стримеров (эффекты на игрока), остальные — у получателя доната. */
     private static final Set<String> ALL_BY_DEFAULT = Set.of("heal", "food", "speed", "buff", "gift", "diamond",
@@ -88,7 +88,7 @@ public final class ChaosCatalog {
                 JsonObject custom = object(customs, code);
                 if (custom == null || !code.matches("c_[0-9a-f]{8}")) continue;
                 JsonObject event = object(events, code);
-                entries.add(new Entry(code, text(custom, "name", "Своё событие", 48), text(custom, "desc", "", 160), "custom",
+                entries.add(new Entry(code, text(custom, "name", "Свой ивент", 48), text(custom, "desc", "", 160), "custom",
                     integer(event, "price", 100), bool(event, "enabled", true), true, target(event, false), integer(event, "cooldown", 0)));
             }
         }

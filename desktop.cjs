@@ -17,7 +17,7 @@ function guard(contents) {
   contents.setWindowOpenHandler(({url}) => {
     if (url.startsWith(ORIGIN + '/?popout=')) {
       return {action: 'allow', overrideBrowserWindowOptions: {
-        width: 560, height: 760, minWidth: 440, minHeight: 420, backgroundColor: '#0b0809', title: 'События - Baranus Chaos',
+        width: 560, height: 760, minWidth: 440, minHeight: 420, backgroundColor: '#0b0809', title: 'Ивенты - Baranus Chaos',
         autoHideMenuBar: true, icon: path.join(__dirname, 'public', 'icon.png'),
         webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}
       }};
@@ -60,6 +60,11 @@ else {
         webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}
       });
       guard(win.webContents);
+      // «Выгрузить ивенты»: окно сохранения сразу открывается в «Документах».
+      win.webContents.session.on('will-download', (event, item) => {
+        item.setSaveDialogOptions({title: 'Сохранить ивенты', defaultPath: path.join(app.getPath('documents'), item.getFilename()),
+          filters: [{name: 'Ивенты Baranus Chaos', extensions: ['json']}]});
+      });
       // «События в отдельном окне» — окно приложения, а не внешний браузер.
       win.webContents.on('did-create-window', child => {
         child.setMenuBarVisibility(false);

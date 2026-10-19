@@ -15,7 +15,7 @@
     </div>
     <nav class="nav">
       <button class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg>Панель</button>
-      <button class="nav-item" data-view="events"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>События</button>
+      <button class="nav-item" data-view="events"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Ивенты</button>
       <button class="nav-item" data-view="connect"><svg viewBox="0 0 24 24"><path d="M8 3v5M16 3v5M5 8h14v4a7 7 0 0 1-14 0zM12 19v3"/></svg>Подключения<i class="nav-alert" id="nav-alert" hidden></i></button>    </nav>
     <div class="side-status">
       <div class="mini" id="mini-da"><i></i><span>DonationAlerts</span></div>
@@ -55,7 +55,7 @@
 
       <div class="dash-grid">
         <section class="panel feed-panel">
-          <div class="panel-head"><h2>Лента событий</h2><span class="muted" id="feed-count"></span></div>
+          <div class="panel-head"><h2>Лента ивентов</h2><span class="muted" id="feed-count"></span></div>
           <div class="feed" id="feed"></div>
         </section>
         <div class="dash-side">
@@ -66,7 +66,7 @@
           <section class="panel">
             <h2>Управление</h2>
             <div class="stack">
-              <button class="btn ghost wide" id="copy-price-dash" type="button" title="Список событий с ценами - вставьте его в описание стрима или в чат">Скопировать прайс</button>
+              <button class="btn ghost wide" id="copy-price-dash" type="button" title="Список ивентов с ценами - вставьте его в описание стрима или в чат">Скопировать прайс</button>
             </div>
           </section>
         </div>
@@ -76,35 +76,40 @@
     <!-- СОБЫТИЯ -->
     <section class="view" id="view-events">
       <header class="view-head">
-        <div><h1>События</h1></div>
+        <div><h1>Ивенты</h1></div>
         <div class="head-actions">
           <button class="btn ghost" id="copy-price" type="button">Скопировать прайс</button>
-          <button class="btn primary" id="create-event" type="button">＋ Создать событие</button>
+          <button class="btn ghost" id="import-ivents" type="button" title="Добавить свои ивенты из файла, который прислал другой стример">Загрузить ивенты</button>
+          <button class="btn ghost" id="export-ivents" type="button" title="Сохранить свои ивенты в файл на этом ПК - его можно отправить другому стримеру">Выгрузить ивенты</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+          <button class="btn primary" id="create-event" type="button">＋ Создать ивент</button>
         </div>
       </header>
-      <div class="toolbar">
-        <div class="tool">
-          <span class="tool-label">Основная валюта</span>
-          <select id="currency" class="select"></select>
-        </div>
-        <div class="tool grow">
-          <span class="tool-label">Валюты зрителей из других стран</span>
-          <div class="cur-list" id="cur-list"></div>
-          <div class="cur-rates" id="cur-rates"></div>
-        </div>
-        <div class="tool">
-          <span class="tool-label">Очередь</span>
-          <div class="queue-tool">
-            <label title="Через сколько секунд после доната срабатывает событие; каждое следующее в очереди - ещё на столько же позже">Задержка <input id="queue-delay" type="number" min="0" max="600" step="1"> с</label>
+      <div class="toolbar settings-bar">
+        <section class="set set-currency">
+          <span class="tool-label">Валюты</span>
+          <div class="set-line">
+            <select id="currency" class="select" title="Основная валюта: в ней задаются цены ивентов"></select>
+            <div class="cur-list" id="cur-list"></div>
           </div>
-        </div>
-        <label class="tool switch-row">
-          <input type="checkbox" id="code-trigger"><span class="switch"></span>
-          <span><b>Коды в сообщении</b><small>!zombie в тексте выбирает событие</small></span>
-        </label>
+          <div class="cur-rates" id="cur-rates"></div>
+        </section>
+        <section class="set">
+          <span class="tool-label">Очередь</span>
+          <label class="set-line delay-field" title="Через сколько секунд после доната срабатывает ивент; каждый следующий в очереди - ещё на столько же позже">
+            <span>Задержка</span><input id="queue-delay" type="number" min="0" max="600" step="1"><span>с</span>
+          </label>
+        </section>
+        <section class="set">
+          <span class="tool-label">Коды в сообщении</span>
+          <label class="set-line switch-row">
+            <input type="checkbox" id="code-trigger"><span class="switch"></span>
+            <span class="set-note">!zombie выбирает ивент</span>
+          </label>
+        </section>
       </div>
       <div class="viewbar">
-        <input id="fx-search" class="search" type="search" placeholder="Поиск события…" aria-label="Поиск события">
+        <input id="fx-search" class="search" type="search" placeholder="Поиск ивента…" aria-label="Поиск ивента">
         <select id="fx-sort" class="select" aria-label="Сортировка">
           <option value="catalog">По порядку</option>
           <option value="price-asc">Цена: сначала дешёвые</option>
@@ -155,7 +160,7 @@
             </div>
             <p class="hint local-only">Запустите Minecraft с модом и откройте любой мир - одиночный или свой сервер на этом ПК. Приложение подключится само, пароль не нужен.</p>
             <div class="friend-only stack">
-              <p class="hint">Играете в мире другого стримера через Radmin VPN. Настройки событий подтянутся из его мира автоматически.</p>
+              <p class="hint">Играете в мире другого стримера через Radmin VPN. Настройки ивентов подтянутся из его мира автоматически.</p>
               <div class="row">
                 <label class="field grow">Адрес друга в Radmin<input name="friendHost" placeholder="26.x.x.x"></label>
                 <label class="field code-field">Код доступа<input name="friendCode" autocomplete="off" maxlength="16" placeholder="из приложения друга"></label>
@@ -176,7 +181,7 @@
           <div class="mc-result" id="mc-result"></div>
           <div class="coop local-only-block" id="coop">
             <div class="coop-head"><b>Совместная игра (Radmin VPN)</b><span class="sync-state" id="sync-state"></span></div>
-            <p class="hint">Второй стример заходит в ваш мир через Radmin VPN и запускает своё приложение в режиме «Мир друга». Настройки событий общие: правки у любого из вас сразу появляются у другого.</p>
+            <p class="hint">Второй стример заходит в ваш мир через Radmin VPN и запускает своё приложение в режиме «Мир друга». Настройки ивентов общие: правки у любого из вас сразу появляются у другого.</p>
             <div id="coop-box"></div>
             <details class="advanced">
               <summary>Как зайти в мир через Radmin VPN</summary>
@@ -194,7 +199,7 @@
             <pre class="code-block">enable-rcon=true
 rcon.port=25575
 rcon.password=придумайте_длинный_пароль</pre>
-            <p class="hint">Мод <b>baranus-chaos-forge-1.5.1.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «Свой мир» - RCON не нужен.</p>
+            <p class="hint">Мод <b>baranus-chaos-forge-1.5.2.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «Свой мир» - RCON не нужен.</p>
           </details>
         </section>
       </div>
@@ -207,7 +212,7 @@ rcon.password=придумайте_длинный_пароль</pre>
 <dialog class="modal" id="event-editor">
   <form method="dialog" id="event-form" class="stack">
     <div class="modal-head">
-      <h2 id="editor-title">Новое событие</h2>
+      <h2 id="editor-title">Новый ивент</h2>
       <button class="icon-close" type="button" id="editor-close" aria-label="Закрыть">✕</button>
     </div>
     <div class="row">
@@ -226,7 +231,7 @@ rcon.password=придумайте_длинный_пароль</pre>
       <label class="field">Команды Minecraft - по одной в строке
         <textarea name="commands" rows="5" spellcheck="false" placeholder="effect give {player} minecraft:levitation 5 1&#10;summon minecraft:zombie ~2 ~ ~ {CustomName:'&quot;{donor}&quot;'}&#10;say {donor} устроил хаос!"></textarea>
       </label>    </div>
-    <label class="switch-row"><input type="checkbox" name="enabled"><span class="switch"></span><span><b>Событие включено</b></span></label>
+    <label class="switch-row"><input type="checkbox" name="enabled"><span class="switch"></span><span><b>Ивент включён</b></span></label>
     <div class="modal-actions">
       <button class="btn ghost danger" type="button" id="editor-delete">Удалить</button>
       <span class="grow"></span>

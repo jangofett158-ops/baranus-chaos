@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.1 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.2 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -178,6 +178,23 @@ test('редактор без выбора иконки: событие сохр
     const zombie = await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', price: 22});
     assert.equal(zombie.body.catalog.find(item => item.code === 'zombie').icon, '🧟');
   } finally { await ctx.stop(); }
+});
+
+test('свои ивенты: выгрузить файлом у одного стримера и загрузить у другого', async () => {
+  const one = await start();
+  const two = await start();
+  try {
+    await one.post('/api/events/save', {name: 'Фейерверк', price: 222, commands: 'summon minecraft:firework_rocket ~ ~1 ~'});
+    const file = (await one.post('/api/events/export')).body;
+    assert.equal(file.ivents.length, 1);
+    const loaded = await two.post('/api/events/import', {file});
+    assert.equal(loaded.status, 200, JSON.stringify(loaded.body));
+    assert.equal(loaded.body.imported, 1);
+    const ivent = loaded.body.catalog.find(item => item.name === 'Фейерверк');
+    assert.ok(ivent?.custom);
+    assert.equal(ivent.price, 222);
+    assert.equal((await two.post('/api/events/import', {file: {format: 'другое'}})).status, 400);
+  } finally { await one.stop(); await two.stop(); }
 });
 
 test('зритель из другой страны: курс подтягивается сам, донат в долларах запускает событие', async () => {

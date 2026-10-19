@@ -2,7 +2,7 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const SYMBOL = {RUB: '₽', USD: '$', EUR: '€'};
 const CURRENCY_NAME = {RUB: 'Рубли', USD: 'Доллары', EUR: 'Евро'};
-const STATE_LABEL = {done: 'Выполнено', simulated: 'Симуляция', failed: 'Ошибка', skipped: 'Пауза', ignored: 'Без события'};
+const STATE_LABEL = {done: 'Выполнено', simulated: 'Симуляция', failed: 'Ошибка', skipped: 'Пауза', ignored: 'Без ивента'};
 const KIND_LABEL = {test: 'Тест', 'test-donation': 'Тестовый донат', replay: 'Повтор'};
 
 let S = null;
@@ -110,7 +110,7 @@ function renderStatus() {
   if (player) {
     if (mc.state !== 'online') playerNote = 'Сервер пока не отвечает';
     else if (mc.paused) { playerKind = 'warn'; playerNote = 'Хаос на паузе в игре (клавиша K)'; }
-    else if (mc.playerOnline) { playerKind = 'ok'; playerNote = 'В игре - события будут срабатывать'; }
+    else if (mc.playerOnline) { playerKind = 'ok'; playerNote = 'В игре - ивенты будут срабатывать'; }
     else { playerKind = 'bad'; playerNote = 'Не в сети'; }
   }
   setCard('#card-player', playerKind, player || 'Не выбран', playerNote);
@@ -119,7 +119,7 @@ function renderStatus() {
   const toggle = $('#chaos-toggle');
   toggle.classList.toggle('paused', settings.paused);
   $('#chaos-title').textContent = settings.paused ? 'ХАОС НА ПАУЗЕ' : 'ХАОС ВКЛЮЧЁН';
-  $('#chaos-sub').textContent = settings.paused ? 'Донаты не запускают события' : 'Нажмите, чтобы поставить паузу';
+  $('#chaos-sub').textContent = settings.paused ? 'Донаты не запускают ивенты' : 'Нажмите, чтобы поставить паузу';
 
   const daDone = da.state === 'online';
   const mcDone = mc.state === 'online' && !!player;
@@ -206,7 +206,7 @@ function renderQueue() {
 }
 
 async function queueAction(action, item) {
-  try { apply(await api(`/api/queue/${action}`, {id: item.id})); toast(action === 'run' ? 'Событие запущено' : 'Убрано из очереди', 'ok'); }
+  try { apply(await api(`/api/queue/${action}`, {id: item.id})); toast(action === 'run' ? 'Ивент запущен' : 'Убрано из очереди', 'ok'); }
   catch (error) { toast(error.message, 'bad'); }
 }
 setInterval(() => { if (S?.queue?.length) renderQueue(); }, 1000);
@@ -222,7 +222,7 @@ function renderCoop() {
   box.replaceChildren(
     h('label', {class: 'switch-row'},
       h('input', {type: 'checkbox', checked: !!mc.remote, onchange: event => toggleRemote(event.target.checked)}), h('span', {class: 'switch'}),
-      h('span', {}, h('b', {}, 'Разрешить подключение друга'), h('small', {}, 'Его приложение сможет запускать события в вашем мире'))),
+      h('span', {}, h('b', {}, 'Разрешить подключение друга'), h('small', {}, 'Его приложение сможет запускать ивенты в вашем мире'))),
     mc.remote ? h('div', {class: 'coop-info'},
       h('div', {}, h('span', {class: 'muted'}, 'Ваш адрес Radmin: '), h('b', {}, addresses)),
       h('div', {}, h('span', {class: 'muted'}, 'Код доступа: '), h('b', {class: 'code'}, remote.code || '…'),
@@ -307,22 +307,22 @@ function renderEvents() {
   grid.className = list ? 'fx-list' : 'fx-grid';
   const visible = visibleEvents();
   const create = list
-    ? h('button', {class: 'fx-row fx-row-create', type: 'button', onclick: () => openEditor(null)}, '＋ Создать событие')
+    ? h('button', {class: 'fx-row fx-row-create', type: 'button', onclick: () => openEditor(null)}, '＋ Создать ивент')
     : h('button', {class: 'fx fx-create', type: 'button', onclick: () => openEditor(null)},
-      h('span', {class: 'plus'}, '＋'), h('b', {}, 'Создать событие'), h('small', {}, 'Своё событие из команд Minecraft'));
+      h('span', {class: 'plus'}, '＋'), h('b', {}, 'Создать ивент'), h('small', {}, 'Свой ивент из команд Minecraft'));
   const items = visible.map(effect => (list ? fxRow : fxCard)(effect, counts));
   grid.replaceChildren(...items, ...(items.length ? [] : [h('p', {class: 'muted empty-search'}, 'Ничего не найдено.')]),
     ...((filter === 'all' || filter === 'custom') && !search && !POPOUT ? [create] : []));
 }
 
 function enabledSwitch(effect, config) {
-  return h('label', {class: 'switch-row', title: config.enabled ? 'Выключить событие' : 'Включить событие'},
+  return h('label', {class: 'switch-row', title: config.enabled ? 'Выключить ивент' : 'Включить ивент'},
     h('input', {type: 'checkbox', checked: config.enabled, onchange: event => save({events: {[effect.code]: {enabled: event.target.checked}}})}),
     h('span', {class: 'switch'}));
 }
 
 function priceInput(effect, config) {
-  return h('label', {class: 'fx-price', title: 'Цена события'},
+  return h('label', {class: 'fx-price', title: 'Цена ивента'},
     h('input', {type: 'number', ...priceStep(S.settings.currency), value: config.price, 'aria-label': `Цена: ${effect.name}`,
       onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
       onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
@@ -337,7 +337,7 @@ function extraPrices(effect) {
 }
 
 const actionButtons = effect => [
-  h('button', {class: 'fx-test fx-edit', type: 'button', title: 'Настроить событие', onclick: () => openEditor(effect.code)}, '✎'),
+  h('button', {class: 'fx-test fx-edit', type: 'button', title: 'Настроить ивент', onclick: () => openEditor(effect.code)}, '✎'),
   h('button', {class: 'fx-test', type: 'button', title: 'Запустить в игре сейчас', onclick: event => testEffect(effect, event.currentTarget)}, '▶')
 ];
 
@@ -348,7 +348,7 @@ function fxCard(effect, counts) {
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
       enabledSwitch(effect, config)),
-    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена - выпадет случайное'}, `×${same}`) : null,
+    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких ивентов эта цена - выпадет случайный'}, `×${same}`) : null,
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
@@ -409,14 +409,16 @@ function renderCurrencies() {
   });
   $('#cur-list').replaceChildren(...toggles);
   const updated = rates?.updatedAt ? new Date(rates.updatedAt).toLocaleString('ru-RU', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}) : null;
+  // Курс - одной строкой; источник и время обновления - в подсказке.
   $('#cur-rates').replaceChildren(...(extras.length ? [
-    h('span', {}, extras.map(([code, {rate}]) => `1 ${SYMBOL[code] || code} = ${num(rate)} ${SYMBOL[main] || main}`).join(' · ')),
-    h('span', {class: rates?.state === 'error' ? 'error-text' : 'muted'},
-      rates?.state === 'error' ? rates.message : updated ? `курс ${rates.source} на ${updated}` : 'курс обновляется…'),
-    h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, 'Обновить курс'),
-    h('button', {type: 'button', class: 'link-btn', title: 'Сбросить ручные цены в других валютах',
+    rates?.state === 'error'
+      ? h('span', {class: 'error-text'}, rates.message)
+      : h('span', {title: updated ? `Курс ${rates.source} на ${updated}` : 'Курс обновляется…'},
+        extras.map(([code, {rate}]) => `1 ${SYMBOL[code] || code} = ${num(rate)} ${SYMBOL[main] || main}`).join('   ')),
+    h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, 'Обновить'),
+    h('button', {type: 'button', class: 'link-btn', title: 'Посчитать цены в $ и € заново по курсу',
       onclick: () => { if (confirm('Посчитать все цены в других валютах заново по текущему курсу? Ручные цены будут сброшены.')) save({recalcPrices: true}, 'Цены пересчитаны по курсу'); }}, 'Сбросить ручные цены')
-  ] : [h('span', {class: 'muted'}, 'Выберите валюты, в которых донатят ваши зрители, - цены посчитаются по актуальному курсу.')]));
+  ] : []));
 }
 
 const plural = (count, one, few, many) => {
@@ -434,7 +436,7 @@ function openEditor(code) {
   editing = effect;
   const custom = !effect || effect.custom;
   dialog.classList.toggle('is-custom', custom);
-  $('#editor-title').textContent = !effect ? 'Новое событие' : custom ? 'Своё событие' : 'Встроенное событие';
+  $('#editor-title').textContent = !effect ? 'Новый ивент' : custom ? 'Свой ивент' : 'Встроенный ивент';
   form.name.value = effect?.name || '';
   form.desc.value = effect?.desc || '';
   form.price.value = effect ? priceOf(effect.code) : suggestPrice();
@@ -479,25 +481,25 @@ $('#event-form').addEventListener('submit', async event => {
   try {
     apply(await api('/api/events/save', body));
     $('#event-editor').close();
-    toast(editing ? 'Событие сохранено' : 'Событие создано', 'ok');
+    toast(editing ? 'Ивент сохранён' : 'Ивент создан', 'ok');
     if (!editing) { filter = 'custom'; renderEvents(); }
   } catch (error) { toast(error.message, 'bad'); }
 });
 $('#editor-delete').addEventListener('click', async () => {
   if (!editing) return;
-  const question = editing.custom ? `Удалить событие «${editing.name}»?` : `Вернуть исходное название, иконку и описание «${editing.original.name}»?`;
+  const question = editing.custom ? `Удалить ивент «${editing.name}»?` : `Вернуть исходное название, иконку и описание «${editing.original.name}»?`;
   if (!confirm(question)) return;
   try {
     apply(await api('/api/events/delete', {code: editing.code}));
     $('#event-editor').close();
-    toast(editing.custom ? 'Событие удалено' : 'Исходные данные возвращены', 'ok');
+    toast(editing.custom ? 'Ивент удалён' : 'Исходные данные возвращены', 'ok');
   } catch (error) { toast(error.message, 'bad'); }
 });
 $('#editor-test').addEventListener('click', event => { if (editing) testEffect(editing, event.currentTarget); });
 
 function priceText() {
   const enabled = S.catalog.filter(effect => S.settings.events[effect.code].enabled).sort((a, b) => priceOf(a.code) - priceOf(b.code));
-  const head = 'Задонать ровно эту сумму - и в моём Minecraft случится событие:';
+  const head = 'Задонать ровно эту сумму - и в моём Minecraft случится ивент:';
   const lines = enabled.map(effect => [money(priceOf(effect.code)), ...Object.entries(effect.prices || {}).map(([currency, price]) => money(price, currency))]
     .join(' / ') + ` - ${effect.name}`);
   const link = S.da.profile?.code ? [`Донат: https://www.donationalerts.com/r/${S.da.profile.code}`] : [];
@@ -532,11 +534,11 @@ function feedItem(item) {
   const effect = item.code ? effectOf(item.code) : null;
   const donor = h('b', {}, item.donor || 'Зритель');
   const title = effect ? [donor, h('span', {class: 'arrow'}, '→'), effect.name]
-    : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' - донат без события'];
+    : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' - донат без ивента'];
   const details = [];
   if (item.amount != null) details.push(money(item.amount, item.currency));
-  if (item.requested === 'random' && item.code !== 'random') details.push('случайное событие');
-  else if (item.pool > 1) details.push(`одно из ${item.pool}`);
+  if (item.requested === 'random' && item.code !== 'random') details.push('случайный ивент');
+  else if (item.pool > 1) details.push(`один из ${item.pool}`);
   if (item.via === 'code') details.push('по коду в сообщении');
   if (item.message) details.push(`«${item.message.length > 90 ? item.message.slice(0, 90) + '…' : item.message}»`);
   if (item.reason) details.push(item.reason);
@@ -554,8 +556,8 @@ function renderFeed() {
   const feed = $('#feed');
   $('#feed-count').textContent = S.history.length ? `${S.history.length} шт.` : '';
   if (!S.history.length) {
-    feed.replaceChildren(h('div', {class: 'feed-empty'}, h('span', {}, 'Здесь появятся донаты и события.'),
-      h('small', {}, 'Проверить событие можно кнопкой ▶ на вкладке «События».')));
+    feed.replaceChildren(h('div', {class: 'feed-empty'}, h('span', {}, 'Здесь появятся донаты и ивенты.'),
+      h('small', {}, 'Проверить ивент можно кнопкой ▶ на вкладке «Ивенты».')));
     return;
   }
   feed.replaceChildren(...S.history.slice(0, 100).map(feedItem));
@@ -565,7 +567,7 @@ async function replay(item, button) {
   button.disabled = true;
   try {
     const result = await api('/api/replay', {id: item.id});
-    toast(result.simulated ? 'Повтор выполнен (симуляция)' : 'Событие запущено', 'ok');
+    toast(result.simulated ? 'Повтор выполнен (симуляция)' : 'Ивент запущен', 'ok');
   } catch (error) {
     toast(error.message, 'bad');
     button.disabled = false;
@@ -614,7 +616,7 @@ async function login() {
 }
 
 async function logout() {
-  if (!confirm('Отключить DonationAlerts? Донаты перестанут запускать события.')) return;
+  if (!confirm('Отключить DonationAlerts? Донаты перестанут запускать ивенты.')) return;
   try { apply(await api('/api/da/logout')); toast('DonationAlerts отключён'); } catch (error) { toast(error.message, 'bad'); }
 }
 
@@ -633,6 +635,40 @@ $('#currency').addEventListener('change', event => {
 });
 $('#code-trigger').addEventListener('change', event => save({codeTrigger: event.target.checked}));
 $('#copy-price').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
+
+// ---------- Свои ивенты: файл для обмена ----------
+$('#export-ivents').addEventListener('click', async () => {
+  try {
+    const file = await api('/api/events/export');
+    if (!file.ivents.length) { toast('Своих ивентов пока нет - создайте их кнопкой «Создать ивент»', 'bad'); return; }
+    const blob = new Blob([JSON.stringify(file, null, 2)], {type: 'application/json'});
+    const link = h('a', {href: URL.createObjectURL(blob), download: `baranus-ivents-${new Date().toISOString().slice(0, 10)}.json`});
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+    toast(`Выгружено ивентов: ${file.ivents.length}`, 'ok');
+  } catch (error) { toast(error.message, 'bad'); }
+});
+$('#import-ivents').addEventListener('click', () => $('#import-file').click());
+$('#import-file').addEventListener('change', async event => {
+  const picked = event.target.files[0];
+  event.target.value = '';
+  if (!picked) return;
+  let file;
+  try { file = JSON.parse(await picked.text()); } catch { toast('Файл не читается: это не файл ивентов Baranus Chaos', 'bad'); return; }
+  const count = Array.isArray(file?.ivents) ? file.ivents.length : 0;
+  if (!confirm(`Загрузить ивенты из «${picked.name}» (${count} шт.)? Команды из файла будут выполняться в игре - загружайте файлы только от тех, кому доверяете.`)) return;
+  try {
+    const result = await api('/api/events/import', {file});
+    apply(result);
+    const parts = [`Добавлено ивентов: ${result.imported}`];
+    if (result.skipped) parts.push(`уже были: ${result.skipped}`);
+    if (result.otherCurrency) parts.push(`цены в файле были в ${result.otherCurrency} - проверьте их`);
+    toast(parts.join(', '), result.imported ? 'ok' : '');
+    if (result.imported) { filter = 'custom'; renderEvents(); }
+  } catch (error) { toast(error.message, 'bad'); }
+});
 $('#copy-price-dash').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
 
 
@@ -721,7 +757,7 @@ async function init() {
   connectStream();
   let view = 'dashboard';
   try { view = localStorage.getItem('baranus-view') || view; } catch { /* без памяти */ }
-  if (POPOUT) { document.body.classList.add('popout'); document.title = 'События - Baranus Chaos'; show('events'); return; }
+  if (POPOUT) { document.body.classList.add('popout'); document.title = 'Ивенты - Baranus Chaos'; show('events'); return; }
   show($(`#view-${view}`) ? view : 'dashboard');
 }
 

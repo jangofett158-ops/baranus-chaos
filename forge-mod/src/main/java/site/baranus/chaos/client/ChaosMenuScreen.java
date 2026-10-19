@@ -86,7 +86,7 @@ public final class ChaosMenuScreen extends Screen {
         search.setBordered(false);
         search.setMaxLength(32);
         search.setTextColor(TEXT);
-        search.setHint(Component.literal("Поиск события…").withStyle(ChatFormatting.DARK_GRAY));
+        search.setHint(Component.literal("Поиск ивента…").withStyle(ChatFormatting.DARK_GRAY));
         search.setValue(previous);
         search.setResponder(value -> { query = value.toLowerCase(Locale.ROOT).trim(); scrollTarget = 0; });
         addRenderableWidget(search);
@@ -183,7 +183,7 @@ public final class ChaosMenuScreen extends Screen {
         g.drawString(font, "BARANUS", 0, 0, TEXT, true);
         g.drawString(font, "CHAOS", font.width("BARANUS "), 0, ACCENT, true);
         g.pose().popPose();
-        g.drawString(font, "Меню событий", left + 14, top + 30, MUTED, false);
+        g.drawString(font, "Меню ивентов", left + 14, top + 30, MUTED, false);
 
         // Статус хаоса: пульсирующая точка.
         if (state != null) {
@@ -247,7 +247,7 @@ public final class ChaosMenuScreen extends Screen {
 
     private Item drawGrid(GuiGraphics g, int mouseX, int mouseY) {
         if (state == null) {
-            g.drawCenteredString(font, "Загружаем события…", left + panelW / 2, gridY + gridH / 2 - 4, MUTED);
+            g.drawCenteredString(font, "Загружаем ивенты…", left + panelW / 2, gridY + gridH / 2 - 4, MUTED);
             return null;
         }
         List<Item> items = visible();
@@ -298,7 +298,7 @@ public final class ChaosMenuScreen extends Screen {
         int textW = cardW - pw - 22;
         String name = ellipsis(item.name(), textW);
         g.drawString(font, Component.literal(name).withStyle(ChatFormatting.BOLD), x + 9, y + 7, item.enabled() ? TEXT : MUTED, true);
-        String desc = item.desc().isEmpty() ? (item.custom() ? "Своё событие" : "") : item.desc();
+        String desc = item.desc().isEmpty() ? (item.custom() ? "Свой ивент" : "") : item.desc();
         g.drawString(font, ellipsis(desc, cardW - 18), x + 9, y + 19, item.enabled() ? 0xFFB9A9AE : 0xFF6E6266, false);
 
         // Нижняя строка: кому срабатывает, перезарядка, подсказка проверки.
@@ -436,7 +436,7 @@ public final class ChaosMenuScreen extends Screen {
             if (!inside(mx, my, x, y, cardW, CARD_H)) continue;
             Item item = items.get(i);
             if (!state.control()) {
-                showToast("Проверять события может хозяин мира");
+                showToast("Проверять ивенты может хозяин мира");
                 return true;
             }
             click();

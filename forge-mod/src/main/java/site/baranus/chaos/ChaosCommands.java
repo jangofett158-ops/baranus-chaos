@@ -38,7 +38,7 @@ public final class ChaosCommands {
             .requires(ChaosCommands::allowed)
             .then(Commands.literal("status").executes(context -> status(context.getSource())))
             .then(Commands.literal("list").executes(context ->
-                reply(context.getSource(), "BaranusChaos:EFFECTS " + String.join(",", ChaosEffects.CODES), "События: " + String.join(", ", ChaosEffects.CODES))))
+                reply(context.getSource(), "BaranusChaos:EFFECTS " + String.join(",", ChaosEffects.CODES), "Ивенты: " + String.join(", ", ChaosEffects.CODES))))
             .then(Commands.literal("pause").executes(context -> setPaused(context.getSource(), true)))
             .then(Commands.literal("resume").executes(context -> setPaused(context.getSource(), false)))
             .then(Commands.literal("panel").executes(context -> panel(context.getSource())))
@@ -135,7 +135,7 @@ public final class ChaosCommands {
         if (done.isEmpty()) return error(source, firstError == null ? "failed" : firstError);
         ChaosEffects.announceAll(source.getServer(), ChaosEffects.EFFECTS.get(effect), donor);
         return reply(source, "BaranusChaos:OK " + effect + " " + String.join(",", done),
-            "Событие «" + ChaosEffects.EFFECTS.get(effect).label() + "» запущено");
+            "Ивент «" + ChaosEffects.EFFECTS.get(effect).label() + "» запущен");
     }
 
     // ---------- Свои события ----------
@@ -181,7 +181,7 @@ public final class ChaosCommands {
             if (label != null && !label.isBlank())
                 ChaosEffects.announceAll(source.getServer(), new ChaosEffects.Info(label.replace("§", ""), ChatFormatting.RED), donor);
         }
-        return reply(source, "BaranusChaos:OK custom " + ok, "Своё событие выполнено");
+        return reply(source, "BaranusChaos:OK custom " + ok, "Свой ивент выполнен");
     }
 
     /** Команда своего события от имени игрока (уровень прав 2). null — успех, иначе текст ошибки Minecraft. */
@@ -232,14 +232,14 @@ public final class ChaosCommands {
         ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(code)).findFirst().ifPresent(entry ->
             ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));
         if (failure != null) source.sendFailure(Component.literal("Команда не выполнилась: " + failure));
-        return reply(source, "BaranusChaos:OK custom " + code, "Проверка своего события");
+        return reply(source, "BaranusChaos:OK custom " + code, "Проверка своего ивента");
     }
 
     /** Включить или выключить событие из меню — изменение уходит в общие настройки и в оба приложения. */
     private static int toggle(CommandSourceStack source, String code) {
         if (!ChaosCatalog.toggle(source.getServer(), code)) return error(source, "no-config");
         ChaosNetwork.broadcastState(source.getServer());
-        return reply(source, "BaranusChaos:TOGGLED " + code, "Событие переключено");
+        return reply(source, "BaranusChaos:TOGGLED " + code, "Ивент переключён");
     }
 
     // ---------- Очередь, синхронизация, доступ друга ----------

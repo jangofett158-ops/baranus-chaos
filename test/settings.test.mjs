@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared} from '../lib/settings.mjs';
+import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared, exportCustomEvents, importCustomEvents} from '../lib/settings.mjs';
 
 test('своё событие: создание, проверка команд, удаление', () => {
   const base = defaultSettings();
@@ -70,7 +70,7 @@ test('встроенное событие можно переименовать 
 test('строгая проверка значений из интерфейса', () => {
   const base = defaultSettings();
   assert.throws(() => applyPatch(base, {events: {zombie: {price: 0}}}), /Цена/);
-  assert.throws(() => applyPatch(base, {events: {hacked: {price: 10}}}), /Неизвестное/);
+  assert.throws(() => applyPatch(base, {events: {hacked: {price: 10}}}), /Неизвестный ивент/);
   assert.throws(() => applyPatch(base, {currency: 'XXX'}), /валюта/);
   assert.throws(() => applyPatch(base, {minecraft: {player: 'Steve; op me'}}), /Ник/);
   assert.throws(() => applyPatch(base, {minecraft: {host: 'http://evil'}}), /Адрес/);
@@ -106,4 +106,30 @@ test('совместная игра: правки двух стримеров с
   assert.ok(withHen.customEvents.c_0000beef, 'новое событие друга появилось');
   assert.equal(mergeShared(host, host, removed).customEvents.c_0000beef, undefined, 'удаление другом тоже доходит');
   assert.deepEqual(mergeShared(null, host, world), host, 'без общей точки — свои настройки');
+});
+
+test('свои ивенты: выгрузка в файл и загрузка у другого стримера, дубли пропускаются', () => {
+  let n = 0;
+  const makeCode = () => `c_${String(++n).padStart(8, '0')}`;
+  const mine = applyPatch(applyPatch(defaultSettings(), {extraCurrencies: {USD: {rate: 80}}}), {
+    customEvents: {c_aaaa0001: {name: 'Курица', icon: '🐔', desc: 'Сверху', commands: 'summon minecraft:chicken ~ ~2 ~'}},
+    events: {c_aaaa0001: {price: 33, target: 'all', enabled: false, prices: {USD: 0.5}}}
+  });
+  const file = JSON.parse(JSON.stringify(exportCustomEvents(mine)));
+  assert.equal(file.format, 'baranus-chaos-ivents');
+  assert.deepEqual(file.ivents, [{name: 'Курица', desc: 'Сверху', commands: ['summon minecraft:chicken ~ ~2 ~'], price: 33, prices: {USD: 0.5}, target: 'all', enabled: false}]);
+
+  const friend = importCustomEvents(defaultSettings(), file, makeCode);
+  assert.deepEqual([friend.added, friend.skipped, friend.otherCurrency], [1, 0, null]);
+  const code = Object.keys(friend.settings.customEvents)[0];
+  assert.equal(friend.settings.customEvents[code].name, 'Курица');
+  assert.deepEqual(friend.settings.events[code], {price: 33, enabled: false, target: 'all'}, 'цена в долларах не переносится, если у друга доллары не включены');
+
+  const again = importCustomEvents(friend.settings, file, makeCode);
+  assert.deepEqual([again.added, again.skipped], [0, 1], 'тот же ивент второй раз не добавляется');
+
+  const broken = {...file, ivents: [...file.ivents, {name: 'Пустой', commands: []}]};
+  assert.throws(() => importCustomEvents(defaultSettings(), broken, makeCode), /Ивент «Пустой»/);
+  assert.throws(() => importCustomEvents(defaultSettings(), {hello: 1}, makeCode), /не файл ивентов/);
+  assert.equal(importCustomEvents(applyPatch(defaultSettings(), {currency: 'USD'}), file, makeCode).otherCurrency, 'RUB');
 });
