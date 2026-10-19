@@ -30,11 +30,16 @@ async function api(path, body = {}) {
   return data;
 }
 
+/** Одно уведомление за раз: новое заменяет прежнее, столбик справа не копится. */
+let toastTimer = null;
 function toast(text, kind = '') {
-  const el = h('div', {class: `toast ${kind}`}, text);
-  $('#toasts').append(el);
-  setTimeout(() => el.remove(), 4000);
+  $('#toasts').replaceChildren(h('div', {class: `toast ${kind}`}, text));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toasts').replaceChildren(), 3000);
 }
+
+// Колесо мыши над полем цены не меняет число: поле теряет фокус, страница просто прокручивается.
+document.addEventListener('wheel', () => { if (document.activeElement?.type === 'number') document.activeElement.blur(); }, {passive: true});
 
 const num = value => Number(value).toLocaleString('ru-RU', {maximumFractionDigits: 2});
 // Доллары и евро - с копейками (0,50 $), рубли - целыми.
@@ -506,7 +511,8 @@ function priceText() {
   return [head, ...lines, ...link].join('\n');
 }
 
-async function save(patch, message = 'Сохранено') {
+/** Сохранить настройки; обычные правки (цена, включение) - молча, уведомление - только если передан текст. */
+async function save(patch, message = '') {
   try {
     apply(await api('/api/settings', patch));
     if (message) toast(message, 'ok');

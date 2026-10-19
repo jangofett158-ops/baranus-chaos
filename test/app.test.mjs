@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.2 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.3 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;

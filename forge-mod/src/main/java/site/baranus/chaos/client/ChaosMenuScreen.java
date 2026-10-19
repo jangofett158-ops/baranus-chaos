@@ -46,7 +46,7 @@ public final class ChaosMenuScreen extends Screen {
     private static final Map<String, String> SYMBOLS = Map.of("RUB", "₽", "USD", "$", "EUR", "€", "UAH", "₴", "KZT", "₸",
         "BYN", "Br", "PLN", "zł", "TRY", "₺", "BRL", "R$");
 
-    private static final int CARD_H = 42, GAP = 6, HEADER = 46, TOOLBAR = 22, FOOTER = 30;
+    private static final int CARD_H = 42, GAP = 6, HEADER = 46, TOOLBAR = 22;
 
     private ChaosNetwork.StatePacket state;
     private final long openedAt = Util.getMillis();
@@ -76,7 +76,7 @@ public final class ChaosMenuScreen extends Screen {
         gridX = left + 12;
         gridY = top + HEADER + TOOLBAR + 12;
         gridW = panelW - 24 - 6;
-        gridH = panelH - HEADER - TOOLBAR - 12 - FOOTER - 6;
+        gridH = panelH - HEADER - TOOLBAR - 12 - 10;
         columns = panelW >= 540 ? 3 : 2;
         cardW = (gridW - (columns - 1) * GAP) / columns;
 
@@ -157,7 +157,6 @@ public final class ChaosMenuScreen extends Screen {
         drawHeader(g, mouseX, mouseY);
         drawToolbar(g, mouseX, mouseY);
         Item hovered = drawGrid(g, mouseX, mouseY);
-        drawFooter(g, mouseX, mouseY);
         super.render(g, mouseX, mouseY, partialTick);
         drawToast(g);
         g.pose().popPose();
@@ -185,18 +184,19 @@ public final class ChaosMenuScreen extends Screen {
         g.pose().popPose();
         g.drawString(font, "Меню ивентов", left + 14, top + 30, MUTED, false);
 
-        // Статус хаоса: пульсирующая точка.
+        // Статус хаоса - кнопка: щелчок ставит паузу или включает хаос (хозяин мира и OP). Пульсирующая точка.
         if (state != null) {
             boolean paused = state.paused();
-            String label = paused ? "ПАУЗА" : "ХАОС АКТИВЕН";
+            int[] r = statusRect();
+            int x = r[0], y = r[1], w = r[2];
+            boolean hover = state.control() && inside(mouseX, mouseY, x, y, w, 15);
+            String label = hover ? statusAction() : statusLabel();
             int color = paused ? AMBER : GREEN;
-            int w = font.width(label) + 22;
-            int x = left + panelW - 34 - w, y = top + 13;
-            pill(g, x, y, w, 15, (color & 0x00FFFFFF) | 0x30000000, color);
+            pill(g, x, y, w, 15, (color & 0x00FFFFFF) | (hover ? 0x60000000 : 0x30000000), hover ? TEXT : color);
             float pulse = 0.55f + 0.45f * Mth.sin(Util.getMillis() / 260f);
             int dot = ((int) (255 * pulse) << 24) | (color & 0x00FFFFFF);
             g.fill(x + 6, y + 5, x + 11, y + 10, dot);
-            g.drawString(font, label, x + 15, y + 4, color, false);
+            g.drawString(font, label, x + 15, y + 4, hover ? TEXT : color, false);
             if (!state.configured())
                 g.drawString(font, "Цены появятся, когда подключится приложение", left + 112, top + 30, AMBER, false);
         }
@@ -321,42 +321,15 @@ public final class ChaosMenuScreen extends Screen {
         g.fill(knob, ty + 1, knob + 7, ty + 8, on ? 0xFFFFFFFF : 0xFFB0A4A8);
     }
 
-    private void drawFooter(GuiGraphics g, int mouseX, int mouseY) {
-        int y = top + panelH - FOOTER;
-        g.fill(left + 1, y - 4, left + panelW - 1, y - 3, LINE);
-        if (state == null) return;
-        int used;
-        if (state.control()) {
-            String pause = pauseLabel();
-            int w1 = font.width(pause) + 18;
-            button(g, left + 12, y + 2, w1, pause, state.paused() ? GREEN : AMBER, mouseX, mouseY);
-            String clean = cleanLabel();
-            int w2 = font.width(clean) + 18;
-            button(g, left + 18 + w1, y + 2, w2, clean, MUTED, mouseX, mouseY);
-            used = left + 18 + w1 + w2;
-        } else {
-            String note = "Только просмотр";
-            g.drawString(font, note, left + 14, y + 8, MUTED, false);
-            used = left + 14 + font.width(note);
-        }
-        // Счётчик — сколько влезет: подробно, коротко или совсем кратко.
-        long on = state.items().stream().filter(Item::enabled).count();
-        int room = left + panelW - 12 - used - 10;
-        for (String stats : List.of("Включено " + on + " из " + state.items().size() + " · K — закрыть",
-                "Включено " + on + " из " + state.items().size(), on + "/" + state.items().size())) {
-            if (font.width(stats) <= room) {
-                g.drawString(font, stats, left + panelW - 12 - font.width(stats), y + 8, 0xFF7D6B71, false);
-                break;
-            }
-        }
-    }
+    private String statusLabel() { return state.paused() ? "ПАУЗА" : "ХАОС АКТИВЕН"; }
 
-    private String pauseLabel() {
-        boolean wide = panelW >= 480;
-        return state.paused() ? (wide ? "▶ Включить хаос" : "▶ Включить") : (wide ? "❚❚ Пауза хаоса" : "❚❚ Пауза");
-    }
+    private String statusAction() { return state.paused() ? "ВКЛЮЧИТЬ ХАОС" : "ПОСТАВИТЬ ПАУЗУ"; }
 
-    private String cleanLabel() { return panelW >= 480 ? "Убрать мобов хаоса" : "Убрать мобов"; }
+    /** Место кнопки статуса: ширина - по самой длинной из двух надписей, чтобы она не прыгала при наведении. */
+    private int[] statusRect() {
+        int w = Math.max(font.width(statusLabel()), state.control() ? font.width(statusAction()) : 0) + 22;
+        return new int[] {left + panelW - 34 - w, top + 13, w};
+    }
 
     private void drawToast(GuiGraphics g) {
         long age = Util.getMillis() - toastAt;
@@ -364,7 +337,7 @@ public final class ChaosMenuScreen extends Screen {
         float alpha = age < 1400 ? 1f : 1f - (age - 1400) / 400f;
         int a = Math.max(8, (int) (255 * alpha));
         int w = font.width(toast) + 20;
-        int x = left + (panelW - w) / 2, y = top + panelH - FOOTER - 26;
+        int x = left + (panelW - w) / 2, y = top + panelH - 26;
         g.fill(x, y, x + w, y + 16, (Math.min(a, 0xE0) << 24) | 0x1B1315);
         outline(g, x, y, w, 16, (a << 24) | (ACCENT & 0x00FFFFFF));
         g.drawString(font, toast, x + 10, y + 4, (a << 24) | 0xF4ECEE, false);
@@ -389,7 +362,7 @@ public final class ChaosMenuScreen extends Screen {
         int mx = (int) mouseX, my = (int) mouseY;
         if (button == 0) {
             if (inside(mx, my, left + panelW - 26, top + 12, 16, 16)) { click(); onClose(); return true; }
-            if (clickTab(mx, my) || clickFooter(mx, my) || clickCard(mx, my)) return true;
+            if (clickStatus(mx, my) || clickTab(mx, my) || clickCard(mx, my)) return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -407,24 +380,14 @@ public final class ChaosMenuScreen extends Screen {
         return false;
     }
 
-    private boolean clickFooter(int mx, int my) {
+    private boolean clickStatus(int mx, int my) {
         if (state == null || !state.control()) return false;
-        int y = top + panelH - FOOTER + 2;
-        int w1 = font.width(pauseLabel()) + 18;
-        if (inside(mx, my, left + 12, y, w1, 16)) {
-            ChaosClient.send(state.paused() ? "baranuschaos resume" : "baranuschaos pause");
-            showToast(state.paused() ? "Хаос снова активен" : "Хаос на паузе");
-            click();
-            return true;
-        }
-        int w2 = font.width(cleanLabel()) + 18;
-        if (inside(mx, my, left + 18 + w1, y, w2, 16)) {
-            ChaosClient.send("baranuschaos cleanup @s");
-            showToast("Мобы хаоса убраны");
-            click();
-            return true;
-        }
-        return false;
+        int[] r = statusRect();
+        if (!inside(mx, my, r[0], r[1], r[2], 15)) return false;
+        ChaosClient.send(state.paused() ? "baranuschaos resume" : "baranuschaos pause");
+        showToast(state.paused() ? "Хаос снова активен" : "Хаос на паузе");
+        click();
+        return true;
     }
 
     private boolean clickCard(int mx, int my) {
@@ -495,12 +458,6 @@ public final class ChaosMenuScreen extends Screen {
 
     private void click() {
         if (minecraft != null) minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-    }
-
-    private void button(GuiGraphics g, int x, int y, int w, String label, int color, int mouseX, int mouseY) {
-        boolean hover = inside(mouseX, mouseY, x, y, w, 16);
-        pill(g, x, y, w, 16, hover ? (color & 0x00FFFFFF) | 0x40000000 : 0x18FFFFFF, hover ? color : LINE);
-        g.drawString(font, label, x + 9, y + 4, hover ? TEXT : color, false);
     }
 
     private String ellipsis(String text, int maxWidth) {
