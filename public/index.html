@@ -47,7 +47,7 @@
           <button class="btn ghost small" data-goto="connect">Настроить</button>
         </article>
         <article class="status-card" id="card-player">
-          <div class="status-icon player">👤</div>
+          <div class="status-icon player">ИГ</div>
           <div class="status-body"><span class="label">Игрок</span><b class="value">-</b></div>
           <button class="btn ghost small" id="resume-game" hidden>Снять паузу</button>
         </article>
@@ -64,21 +64,9 @@
             <div class="queue-list" id="queue-list"></div>
           </section>
           <section class="panel">
-            <h2>Тестовый донат</h2>
-            <form id="test-donation" class="stack">
-              <div class="row">
-                <label class="field grow">Сумма<input name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></label>
-                <label class="field cur-field">Валюта<select name="currency" class="select" id="test-currency"></select></label>
-              </div>
-              <label class="field">Имя<input name="username" maxlength="40" placeholder="Тестовый зритель"></label>
-              <button class="btn primary" type="submit">Отправить донат</button>
-            </form>
-            <div class="price-strip" id="price-strip"></div>
-          </section>
-          <section class="panel">
             <h2>Управление</h2>
             <div class="stack">
-              <button class="btn ghost" id="copy-price-dash" type="button">📋 Скопировать прайс для зрителей</button>
+              <button class="btn ghost wide" id="copy-price-dash" type="button" title="Список событий с ценами - вставьте его в описание стрима или в чат">Скопировать прайс</button>
             </div>
           </section>
         </div>
@@ -90,7 +78,7 @@
       <header class="view-head">
         <div><h1>События</h1></div>
         <div class="head-actions">
-          <button class="btn ghost" id="copy-price" type="button">📋 Скопировать прайс</button>
+          <button class="btn ghost" id="copy-price" type="button">Скопировать прайс</button>
           <button class="btn primary" id="create-event" type="button">＋ Создать событие</button>
         </div>
       </header>
@@ -124,10 +112,10 @@
           <option value="name">По названию</option>
         </select>
         <div class="seg" id="fx-layout">
-          <button type="button" data-layout="grid">▦ Плитки</button>
-          <button type="button" data-layout="list">☰ Список</button>
+          <button type="button" data-layout="grid">Плитки</button>
+          <button type="button" data-layout="list">Список</button>
         </div>
-        <button class="btn ghost small" id="popout" type="button">⧉ В отдельном окне</button>
+        <button class="btn ghost small" id="popout" type="button">В отдельном окне</button>
       </div>
       <div class="chips" id="chips"></div>
       <div class="fx-grid" id="fx-grid"></div>
@@ -161,9 +149,9 @@
           <div class="step-head"><span class="step-n">2</span><h2>Minecraft-сервер</h2></div>
           <form id="mc-form" class="stack">
             <div class="seg wide" id="mc-mode">
-              <button type="button" data-mode="local">🏠 Свой мир</button>
-              <button type="button" data-mode="friend">🤝 Мир друга</button>
-              <button type="button" data-mode="rcon">🌐 Сервер</button>
+              <button type="button" data-mode="local">Свой мир</button>
+              <button type="button" data-mode="friend">Мир друга</button>
+              <button type="button" data-mode="rcon">Сервер</button>
             </div>
             <p class="hint local-only">Запустите Minecraft с модом и откройте любой мир - одиночный или свой сервер на этом ПК. Приложение подключится само, пароль не нужен.</p>
             <div class="friend-only stack">
@@ -187,7 +175,7 @@
           </form>
           <div class="mc-result" id="mc-result"></div>
           <div class="coop local-only-block" id="coop">
-            <div class="coop-head"><b>🤝 Совместная игра (Radmin VPN)</b><span class="sync-state" id="sync-state"></span></div>
+            <div class="coop-head"><b>Совместная игра (Radmin VPN)</b><span class="sync-state" id="sync-state"></span></div>
             <p class="hint">Второй стример заходит в ваш мир через Radmin VPN и запускает своё приложение в режиме «Мир друга». Настройки событий общие: правки у любого из вас сразу появляются у другого.</p>
             <div id="coop-box"></div>
             <details class="advanced">
@@ -206,7 +194,7 @@
             <pre class="code-block">enable-rcon=true
 rcon.port=25575
 rcon.password=придумайте_длинный_пароль</pre>
-            <p class="hint">Мод <b>baranus-chaos-forge-1.5.1.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «🏠 Свой мир» - RCON не нужен.</p>
+            <p class="hint">Мод <b>baranus-chaos-forge-1.5.1.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «Свой мир» - RCON не нужен.</p>
           </details>
         </section>
       </div>

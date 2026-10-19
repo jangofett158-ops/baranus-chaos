@@ -152,11 +152,11 @@ function renderDaBox() {
     daWaiting = false;
     const connecting = da.state === 'connecting';
     box.replaceChildren(...[
-      h('div', {class: 'da-wait'}, connecting ? h('span', {class: 'spinner'}) : h('span', {}, '⚠️'),
+      h('div', {class: 'da-wait'}, connecting ? h('span', {class: 'spinner'}) : null,
         connecting ? (da.message || 'Подключаемся к потоку донатов…') : 'Вход выполнен, но поток донатов не подключился'),
       !connecting && da.message ? h('p', {class: 'error-text'}, da.message) : null,
       h('div', {class: 'row'},
-        h('button', {class: 'btn primary', type: 'button', onclick: reconnect}, '↻ Переподключить'),
+        h('button', {class: 'btn primary', type: 'button', onclick: reconnect}, 'Переподключить'),
         h('button', {class: 'btn ghost danger', type: 'button', onclick: logout}, 'Выйти и войти заново')),
       daLogBlock()
     ].filter(Boolean));
@@ -244,12 +244,12 @@ function renderMcResult() {
     return;
   }
   let text = mc.message;
-  if (mc.state === 'online') text = `✓ Мод ${mc.version} отвечает. В сети: ${mc.players.join(', ') || 'никого'}.`;
+  if (mc.state === 'online') text = `Мод ${mc.version} отвечает. В сети: ${mc.players.join(', ') || 'никого'}.`;
   if (mc.state === 'online') text += mc.target ? ` Ваш ник: ${mc.target}.` : ' Ваш ник определится, когда вы зайдёте в мир.';
   result.replaceChildren(text && kinds[mc.state] ? h('div', {class: `result ${kinds[mc.state]}`}, text) : '');
 
   const list = $('#online-players');
-  list.replaceChildren(...mc.players.map(name => h('button', {type: 'button', title: 'Выбрать этот ник', onclick: () => { $('#mc-form').elements.player.value = name; }}, '👤 ' + name)));
+  list.replaceChildren(...mc.players.map(name => h('button', {type: 'button', title: 'Выбрать этот ник', onclick: () => { $('#mc-form').elements.player.value = name; }}, name)));
   $('#players').replaceChildren(...mc.players.map(name => h('option', {value: name})));
 }
 
@@ -270,7 +270,7 @@ try { layout = localStorage.getItem('baranus-layout') || 'grid'; sortMode = loca
 
 const TARGET_LABEL = {receiver: 'получателю', all: 'всем'};
 /** Коротко о событии: кому оно срабатывает. */
-const eventMeta = effect => effect.target === 'all' ? '👥 всем стримерам' : '👤 получателю доната';
+const eventMeta = effect => effect.target === 'all' ? 'всем стримерам' : 'получателю доната';
 
 function visibleEvents() {
   const query = search.trim().toLowerCase();
@@ -313,7 +313,6 @@ function renderEvents() {
   const items = visible.map(effect => (list ? fxRow : fxCard)(effect, counts));
   grid.replaceChildren(...items, ...(items.length ? [] : [h('p', {class: 'muted empty-search'}, 'Ничего не найдено.')]),
     ...((filter === 'all' || filter === 'custom') && !search && !POPOUT ? [create] : []));
-  renderPriceStrip();
 }
 
 function enabledSwitch(effect, config) {
@@ -349,7 +348,7 @@ function fxCard(effect, counts) {
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
       enabledSwitch(effect, config)),
-    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена - выпадет случайное'}, `🎲 ×${same}`) : null,
+    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена - выпадет случайное'}, `×${same}`) : null,
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
@@ -363,7 +362,7 @@ function fxRow(effect, counts) {
     enabledSwitch(effect, config),
     h('div', {class: 'fx-row-main'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null,
-        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена - выпадет случайное'}, `🎲 ×${same}`) : null),
+        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена - выпадет случайное'}, `×${same}`) : null),
       h('div', {class: 'fx-meta'}, eventMeta(effect))),
     ...(POPOUT ? [] : [extraPrices(effect) || h('span')]),
     priceInput(effect, config),
@@ -414,15 +413,10 @@ function renderCurrencies() {
     h('span', {}, extras.map(([code, {rate}]) => `1 ${SYMBOL[code] || code} = ${num(rate)} ${SYMBOL[main] || main}`).join(' · ')),
     h('span', {class: rates?.state === 'error' ? 'error-text' : 'muted'},
       rates?.state === 'error' ? rates.message : updated ? `курс ${rates.source} на ${updated}` : 'курс обновляется…'),
-    h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, '↻ Обновить курс'),
+    h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, 'Обновить курс'),
     h('button', {type: 'button', class: 'link-btn', title: 'Сбросить ручные цены в других валютах',
       onclick: () => { if (confirm('Посчитать все цены в других валютах заново по текущему курсу? Ручные цены будут сброшены.')) save({recalcPrices: true}, 'Цены пересчитаны по курсу'); }}, 'Сбросить ручные цены')
   ] : [h('span', {class: 'muted'}, 'Выберите валюты, в которых донатят ваши зрители, - цены посчитаются по актуальному курсу.')]));
-  // Тестовый донат: основная + дополнительные валюты
-  const select = $('#test-currency');
-  const current = select.value;
-  select.replaceChildren(...[main, ...extras.map(([code]) => code)].map(code => h('option', {value: code}, `${code} ${SYMBOL[code] || ''}`)));
-  select.value = [main, ...Object.keys(settings.extraCurrencies)].includes(current) ? current : main;
 }
 
 const plural = (count, one, few, many) => {
@@ -501,14 +495,6 @@ $('#editor-delete').addEventListener('click', async () => {
 });
 $('#editor-test').addEventListener('click', event => { if (editing) testEffect(editing, event.currentTarget); });
 
-function renderPriceStrip() {
-  const enabled = S.catalog.filter(effect => S.settings.events[effect.code].enabled)
-    .sort((a, b) => priceOf(a.code) - priceOf(b.code));
-  $$('.money .cur').forEach(el => { el.textContent = SYMBOL[S.settings.currency] || S.settings.currency; });
-  $('#price-strip').replaceChildren(...enabled.map(effect => h('button', {type: 'button', title: effect.name,
-    onclick: () => { $('#test-donation').elements.amount.value = priceOf(effect.code); }}, effect.icon, ' ', money(priceOf(effect.code)))));
-}
-
 function priceText() {
   const enabled = S.catalog.filter(effect => S.settings.events[effect.code].enabled).sort((a, b) => priceOf(a.code) - priceOf(b.code));
   const head = 'Задонать ровно эту сумму - и в моём Minecraft случится событие:';
@@ -533,7 +519,7 @@ async function testEffect(effect, button) {
   try {
     const result = await api('/api/test/effect', {code: effect.code});
     const name = effectOf(result.code)?.name || effect.name;
-    toast(result.simulated ? `Симуляция: ${name}` : `▶ ${name} - в игре`, 'ok');
+    toast(result.simulated ? `Симуляция: ${name}` : `${name} - в игре`, 'ok');
   } catch (error) {
     toast(`${effect.name}: ${error.message}`, 'bad');
   } finally {
@@ -549,28 +535,27 @@ function feedItem(item) {
     : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' - донат без события'];
   const details = [];
   if (item.amount != null) details.push(money(item.amount, item.currency));
-  if (item.requested === 'random' && item.code !== 'random') details.push('🎲 случайное событие');
-  else if (item.pool > 1) details.push(`🎲 одно из ${item.pool}`);
+  if (item.requested === 'random' && item.code !== 'random') details.push('случайное событие');
+  else if (item.pool > 1) details.push(`одно из ${item.pool}`);
   if (item.via === 'code') details.push('по коду в сообщении');
   if (item.message) details.push(`«${item.message.length > 90 ? item.message.slice(0, 90) + '…' : item.message}»`);
   if (item.reason) details.push(item.reason);
   const canReplay = ['failed', 'skipped'].includes(item.state) && item.code && !item.replayed;
   return h('div', {class: `feed-item ${item.state}`},
-    h('div', {class: 'feed-icon'}, effect?.icon || '💸'),
     h('div', {}, h('div', {class: 'feed-title'}, title), h('div', {class: 'feed-sub'}, details.join(' · '))),
     h('div', {class: 'feed-meta'},
       h('div', {}, KIND_LABEL[item.kind] ? h('span', {class: 'chip kind'}, KIND_LABEL[item.kind]) : null, ' ',
         h('span', {class: `chip ${item.state}`}, STATE_LABEL[item.state] || item.state)),
       h('time', {}, new Date(item.at).toLocaleTimeString('ru-RU')),
-      canReplay ? h('button', {class: 'btn small', type: 'button', onclick: event => replay(item, event.currentTarget)}, '↻ Запустить') : null));
+      canReplay ? h('button', {class: 'btn small', type: 'button', onclick: event => replay(item, event.currentTarget)}, 'Запустить снова') : null));
 }
 
 function renderFeed() {
   const feed = $('#feed');
   $('#feed-count').textContent = S.history.length ? `${S.history.length} шт.` : '';
   if (!S.history.length) {
-    feed.replaceChildren(h('div', {class: 'feed-empty'}, h('b', {}, '🎲'), h('span', {}, 'Здесь появятся донаты и события.'),
-      h('small', {}, 'Отправьте тестовый донат справа, чтобы проверить.')));
+    feed.replaceChildren(h('div', {class: 'feed-empty'}, h('span', {}, 'Здесь появятся донаты и события.'),
+      h('small', {}, 'Проверить событие можно кнопкой ▶ на вкладке «События».')));
     return;
   }
   feed.replaceChildren(...S.history.slice(0, 100).map(feedItem));
@@ -606,7 +591,7 @@ function fillForms() {
   client.clientSecret.value = '';
   client.clientSecret.placeholder = S.settings.hasDaSecret ? 'Сохранён - оставьте пустым' : 'Необязательно';
   $('#secret-hint').textContent = S.settings.hasDaSecret
-    ? '✓ Секрет сохранён: вход через код, токен обновляется сам.'
+    ? 'Секрет сохранён: вход через код, токен обновляется сам.'
     : 'Без секрета используется упрощённый вход (Implicit). Если он не срабатывает - впишите Client Secret.';
   if (!S.settings.hasDaSecret && ['error', 'auth'].includes(S.da.state)) $('.advanced').open = true;
   $('#currency').replaceChildren(...S.currencies.map(code => h('option', {value: code}, `${code} ${SYMBOL[code] || ''}`)));
@@ -650,19 +635,6 @@ $('#code-trigger').addEventListener('change', event => save({codeTrigger: event.
 $('#copy-price').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
 $('#copy-price-dash').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
 
-$('#test-donation').addEventListener('submit', async event => {
-  event.preventDefault();
-  const form = event.target.elements;
-  const button = event.target.querySelector('button');
-  button.disabled = true;
-  try {
-    const result = await api('/api/test/donation', {amount: Number(form.amount.value), currency: form.currency.value, username: form.username.value});
-    const name = effectOf(result.code)?.name || 'Событие';
-    const wait = result.dueAt ? Math.max(0, Math.round((result.dueAt - Date.now()) / 1000)) : 0;
-    toast(result.queued ? `${name} - в очереди${wait ? `, через ${wait} с` : ''}` : `${name}${result.simulated ? ' (симуляция)' : ' - в игре'}`, 'ok');
-  } catch (error) { toast(error.message, 'bad'); }
-  finally { button.disabled = false; }
-});
 
 
 $('#resume-game').addEventListener('click', async () => {
@@ -681,7 +653,7 @@ $('#mc-form').addEventListener('submit', async event => {
       password: form.password.value, player: form.player.value.trim()}));
     fillForms();
     const {mc} = S;
-    if (mc.state === 'online') toast('Minecraft подключён ✓', 'ok');
+    if (mc.state === 'online') toast('Minecraft подключён', 'ok');
     else toast(mc.message || 'Сохранено', mc.state === 'error' ? 'bad' : '');
   } catch (error) { toast(error.message, 'bad'); }
   finally { button.disabled = false; button.textContent = 'Сохранить и проверить'; }
@@ -721,7 +693,7 @@ function connectStream() {
     if (message.type === 'state') {
       const wasOnline = S.da.state === 'online';
       Object.assign(S, message.state);
-      if (!wasOnline && S.da.state === 'online') toast('DonationAlerts подключён ✓', 'ok');
+      if (!wasOnline && S.da.state === 'online') toast('DonationAlerts подключён', 'ok');
       renderStatus();
       renderEvents();
     } else if (message.type === 'history') {
