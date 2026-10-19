@@ -59,9 +59,7 @@ p { margin: 0; }
   border: 1px solid rgba(232, 38, 58, .35); box-shadow: 0 8px 26px rgba(232, 38, 58, .25);
 }
 .logo-mark svg { width: 28px; height: 28px; }
-.logo-text { display: flex; flex-direction: column; line-height: 1; font-family: var(--display); font-weight: 900; }
-.logo-text b { font-size: 19px; letter-spacing: .04em; }
-.logo-text span { font-size: 13px; letter-spacing: .42em; color: var(--accent-2); margin-top: 4px; }
+.logo-pixel { display: block; width: 100%; max-width: 196px; height: auto; } /* пиксельная надпись, как в меню событий в игре */
 
 .nav { display: flex; flex-direction: column; gap: 6px; }
 .nav-item {
@@ -356,7 +354,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .price-field { width: 140px; }
 .field textarea { padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line-2); background: #0e0a0b; color: var(--text); font: 13px/1.5 Consolas, monospace; text-transform: none; letter-spacing: 0; resize: vertical; outline: none; }
 .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 38, 58, .25); }
-.modal:not(.is-custom) .custom-only, .modal.is-custom .builtin-only { display: none; }
+.modal:not(.is-custom) .custom-only { display: none; }
 .modal-actions { display: flex; gap: 10px; align-items: center; padding-top: 6px; }
 
 ::-webkit-scrollbar { width: 10px; }
@@ -419,11 +417,23 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .steps-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
 /* ---------- Отдельное окно событий ---------- */
+/* Только список: включить, цена, настроить. Валюты, очередь, сортировка и вид - в основном окне. */
 body.popout .app { grid-template-columns: 1fr; }
-body.popout .sidebar, body.popout #view-events .head-actions #copy-price, body.popout #popout { display: none; }
-body.popout .main { padding: 20px 22px; }
+body.popout .sidebar, body.popout #view-events .head-actions, body.popout #view-events .toolbar,
+body.popout #fx-sort, body.popout #fx-layout, body.popout #popout { display: none; }
+body.popout .main { padding: 14px 16px; }
+body.popout #view-events .view-head h1 { font-size: 24px; }
+body.popout .viewbar { margin: 10px 0 8px; }
+body.popout .viewbar .search { flex: 1; }
+body.popout .chips { margin-bottom: 10px; gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+body.popout .chips button { padding: 6px 10px; font-size: 12.5px; flex: none; }
+body.popout .fx-list { gap: 6px; }
+body.popout .fx-row { grid-template-columns: auto 1fr 112px 38px; gap: 10px; padding: 7px 10px; border-radius: 11px; }
+body.popout .fx-row .fx-price input { height: 36px; font-size: 15px; }
+body.popout .fx-row .fx-test { width: 36px; height: 36px; }
 
 @media (max-width: 1000px) {
-  .fx-row { grid-template-columns: auto 1fr 130px 40px 40px; }
-  .fx-row .fx-prices { display: none; }
+  body:not(.popout) .fx-row { grid-template-columns: auto 1fr 130px 40px 40px; }
+  /* Третья колонка - цены в других валютах: в узком окне её нет совсем, иначе ряд разъезжается. */
+  body:not(.popout) .fx-row > :nth-child(3) { display: none; }
 }

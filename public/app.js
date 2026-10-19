@@ -1,7 +1,7 @@
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
-const SYMBOL = {RUB: '₽', USD: '$', EUR: '€', UAH: '₴', KZT: '₸', BYN: 'Br', PLN: 'zł', TRY: '₺', BRL: 'R$'};
-const CURRENCY_NAME = {RUB: 'Рубли', USD: 'Доллары', EUR: 'Евро', UAH: 'Гривны', KZT: 'Тенге', BYN: 'Бел. рубли', PLN: 'Злотые', TRY: 'Лиры', BRL: 'Реалы'};
+const SYMBOL = {RUB: '₽', USD: '$', EUR: '€'};
+const CURRENCY_NAME = {RUB: 'Рубли', USD: 'Доллары', EUR: 'Евро'};
 const STATE_LABEL = {done: 'Выполнено', simulated: 'Симуляция', failed: 'Ошибка', skipped: 'Пауза', ignored: 'Без события'};
 const KIND_LABEL = {test: 'Тест', 'test-donation': 'Тестовый донат', replay: 'Повтор'};
 
@@ -37,7 +37,15 @@ function toast(text, kind = '') {
 }
 
 const num = value => Number(value).toLocaleString('ru-RU', {maximumFractionDigits: 2});
-const money = (amount, currency = S.settings.currency) => `${num(amount)} ${SYMBOL[currency] || currency}`;
+// Доллары и евро - с копейками (0,50 $), рубли - целыми.
+const fractional = currency => (S.fractional || ['USD', 'EUR']).includes(currency);
+const money = (amount, currency = S.settings.currency) => {
+  const text = fractional(currency) && Number(amount) % 1
+    ? Number(amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : num(amount);
+  return `${text} ${SYMBOL[currency] || currency}`;
+};
+/** Шаг поля цены: 0,01 для долларов и евро, 1 для рублей. */
+const priceStep = currency => fractional(currency) ? {min: '0.01', step: '0.01'} : {min: '1', step: '1'};
 const effectOf = code => S.catalog.find(effect => effect.code === code);
 const priceOf = code => S.settings.events[code].price;
 const cents = value => Math.round(Number(value) * 100);
@@ -98,11 +106,11 @@ function renderStatus() {
   setMini('#mini-mc', mcKind === 'sim' ? 'warn' : mcKind);
   setCard('#card-mc', mcKind, mcValue, mcNote);
 
-  let playerKind = '', playerNote = 'Зайдите в мир — ник определится сам';
+  let playerKind = '', playerNote = 'Зайдите в мир - ник определится сам';
   if (player) {
     if (mc.state !== 'online') playerNote = 'Сервер пока не отвечает';
     else if (mc.paused) { playerKind = 'warn'; playerNote = 'Хаос на паузе в игре (клавиша K)'; }
-    else if (mc.playerOnline) { playerKind = 'ok'; playerNote = 'В игре — события будут срабатывать'; }
+    else if (mc.playerOnline) { playerKind = 'ok'; playerNote = 'В игре - события будут срабатывать'; }
     else { playerKind = 'bad'; playerNote = 'Не в сети'; }
   }
   setCard('#card-player', playerKind, player || 'Не выбран', playerNote);
@@ -182,7 +190,7 @@ function renderQueue() {
   const queue = S.queue || [];
   $('#queue-count').textContent = queue.length ? `${queue.length} шт.` : '';
   if (!queue.length) {
-    $('#queue-list').replaceChildren(h('p', {class: 'muted queue-empty'}, S.settings.paused ? 'Хаос на паузе.' : 'Пусто — новые донаты появятся здесь.'));
+    $('#queue-list').replaceChildren(h('p', {class: 'muted queue-empty'}, S.settings.paused ? 'Хаос на паузе.' : 'Пусто - новые донаты появятся здесь.'));
     return;
   }
   $('#queue-list').replaceChildren(...queue.map(item => {
@@ -210,7 +218,7 @@ function renderCoop() {
   $('#sync-state').className = `sync-state ${sync.state === 'error' ? 'bad' : 'ok'}`;
   const box = $('#coop-box');
   if (mc.state !== 'online') { box.replaceChildren(h('p', {class: 'muted'}, 'Откройте мир, чтобы включить совместную игру.')); return; }
-  const addresses = remote.addresses?.length ? remote.addresses.join(', ') : 'не найден — включите Radmin VPN';
+  const addresses = remote.addresses?.length ? remote.addresses.join(', ') : 'не найден - включите Radmin VPN';
   box.replaceChildren(
     h('label', {class: 'switch-row'},
       h('input', {type: 'checkbox', checked: !!mc.remote, onchange: event => toggleRemote(event.target.checked)}), h('span', {class: 'switch'}),
@@ -261,15 +269,8 @@ let layout = 'grid', search = '', sortMode = 'catalog';
 try { layout = localStorage.getItem('baranus-layout') || 'grid'; sortMode = localStorage.getItem('baranus-sort') || 'catalog'; } catch { /* без памяти */ }
 
 const TARGET_LABEL = {receiver: 'получателю', all: 'всем'};
-/** Коротко о настройках события: кому, количество/длительность/уровень, перезарядка. */
-function eventMeta(effect) {
-  const parts = [effect.target === 'all' ? '👥 всем стримерам' : '👤 получателю доната'];
-  if (effect.params?.count) parts.push(`×${effect.params.count}`);
-  if (effect.params?.seconds) parts.push(`${effect.params.seconds} с`);
-  if (effect.params?.level) parts.push(`ур. ${effect.params.level}`);
-  if (effect.cooldown) parts.push(`⏱ раз в ${effect.cooldown} с`);
-  return parts.join(' · ');
-}
+/** Коротко о событии: кому оно срабатывает. */
+const eventMeta = effect => effect.target === 'all' ? '👥 всем стримерам' : '👤 получателю доната';
 
 function visibleEvents() {
   const query = search.trim().toLowerCase();
@@ -286,7 +287,7 @@ function renderEvents() {
   $('#currency').value = settings.currency;
   renderCurrencies();
   $('#code-trigger').checked = settings.codeTrigger;
-  for (const [id, key] of [['#queue-delay', 'delay'], ['#queue-gap', 'gap']]) if (document.activeElement !== $(id)) $(id).value = settings.queue[key];
+  if (document.activeElement !== $('#queue-delay')) $('#queue-delay').value = settings.queue.delay;
   $$('#fx-layout button').forEach(button => button.classList.toggle('active', button.dataset.layout === layout));
   $('#fx-sort').value = sortMode;
   const counts = duplicates();
@@ -301,15 +302,17 @@ function renderEvents() {
   // Не перерисовываем, пока пользователь вводит цену.
   if (document.activeElement?.closest?.('#fx-grid input[type=number]')) return;
   const grid = $('#fx-grid');
-  grid.className = layout === 'list' ? 'fx-list' : 'fx-grid';
+  // В отдельном окне - всегда компактный список: включить, цена, настроить.
+  const list = POPOUT || layout === 'list';
+  grid.className = list ? 'fx-list' : 'fx-grid';
   const visible = visibleEvents();
-  const create = layout === 'list'
+  const create = list
     ? h('button', {class: 'fx-row fx-row-create', type: 'button', onclick: () => openEditor(null)}, '＋ Создать событие')
     : h('button', {class: 'fx fx-create', type: 'button', onclick: () => openEditor(null)},
       h('span', {class: 'plus'}, '＋'), h('b', {}, 'Создать событие'), h('small', {}, 'Своё событие из команд Minecraft'));
-  const items = visible.map(effect => (layout === 'list' ? fxRow : fxCard)(effect, counts));
+  const items = visible.map(effect => (list ? fxRow : fxCard)(effect, counts));
   grid.replaceChildren(...items, ...(items.length ? [] : [h('p', {class: 'muted empty-search'}, 'Ничего не найдено.')]),
-    ...((filter === 'all' || filter === 'custom') && !search ? [create] : []));
+    ...((filter === 'all' || filter === 'custom') && !search && !POPOUT ? [create] : []));
   renderPriceStrip();
 }
 
@@ -321,7 +324,7 @@ function enabledSwitch(effect, config) {
 
 function priceInput(effect, config) {
   return h('label', {class: 'fx-price', title: 'Цена события'},
-    h('input', {type: 'number', min: '1', step: '1', value: config.price, 'aria-label': `Цена: ${effect.name}`,
+    h('input', {type: 'number', ...priceStep(S.settings.currency), value: config.price, 'aria-label': `Цена: ${effect.name}`,
       onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
       onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
     h('em', {}, SYMBOL[S.settings.currency] || S.settings.currency));
@@ -329,7 +332,7 @@ function priceInput(effect, config) {
 
 function extraPrices(effect) {
   return Object.keys(effect.prices || {}).length
-    ? h('button', {class: 'fx-prices', type: 'button', title: 'Цены в других валютах — нажмите, чтобы изменить', onclick: () => openEditor(effect.code)},
+    ? h('button', {class: 'fx-prices', type: 'button', title: 'Цены в других валютах - нажмите, чтобы изменить', onclick: () => openEditor(effect.code)},
       ...Object.entries(effect.prices).map(([currency, price]) => h('span', {class: effect.manual?.includes(currency) ? 'manual' : ''}, money(price, currency))))
     : null;
 }
@@ -346,7 +349,7 @@ function fxCard(effect, counts) {
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
       enabledSwitch(effect, config)),
-    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена — выпадет случайное'}, `🎲 ×${same}`) : null,
+    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких событий эта цена - выпадет случайное'}, `🎲 ×${same}`) : null,
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
@@ -360,11 +363,11 @@ function fxRow(effect, counts) {
     enabledSwitch(effect, config),
     h('div', {class: 'fx-row-main'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null,
-        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена — выпадет случайное'}, `🎲 ×${same}`) : null),
+        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена - выпадет случайное'}, `🎲 ×${same}`) : null),
       h('div', {class: 'fx-meta'}, eventMeta(effect))),
-    extraPrices(effect) || h('span'),
+    ...(POPOUT ? [] : [extraPrices(effect) || h('span')]),
     priceInput(effect, config),
-    ...actionButtons(effect));
+    ...(POPOUT ? actionButtons(effect).slice(0, 1) : actionButtons(effect)));
 }
 
 $('#fx-search').addEventListener('input', event => { search = event.target.value; renderEvents(); });
@@ -380,10 +383,8 @@ $('#fx-layout').addEventListener('click', event => {
   try { localStorage.setItem('baranus-layout', layout); } catch { /* без памяти */ }
   renderEvents();
 });
-$('#popout').addEventListener('click', () => window.open('/?popout=events', 'baranus-events', 'width=1180,height=820'));
-for (const [id, key] of [['#queue-delay', 'delay'], ['#queue-gap', 'gap']]) {
-  $(id).addEventListener('change', event => save({queue: {[key]: Number(event.target.value)}}, key === 'delay' ? 'Задержка сохранена' : 'Пауза сохранена'));
-}
+$('#popout').addEventListener('click', () => window.open('/?popout=events', 'baranus-events', 'width=560,height=760'));
+$('#queue-delay').addEventListener('change', event => save({queue: {delay: Number(event.target.value)}}, 'Задержка сохранена'));
 
 // ---------- Валюты ----------
 async function refreshRatesNow(button) {
@@ -416,7 +417,7 @@ function renderCurrencies() {
     h('button', {type: 'button', class: 'link-btn', onclick: event => refreshRatesNow(event.currentTarget)}, '↻ Обновить курс'),
     h('button', {type: 'button', class: 'link-btn', title: 'Сбросить ручные цены в других валютах',
       onclick: () => { if (confirm('Посчитать все цены в других валютах заново по текущему курсу? Ручные цены будут сброшены.')) save({recalcPrices: true}, 'Цены пересчитаны по курсу'); }}, 'Сбросить ручные цены')
-  ] : [h('span', {class: 'muted'}, 'Выберите валюты, в которых донатят ваши зрители, — цены посчитаются по актуальному курсу.')]));
+  ] : [h('span', {class: 'muted'}, 'Выберите валюты, в которых донатят ваши зрители, - цены посчитаются по актуальному курсу.')]));
   // Тестовый донат: основная + дополнительные валюты
   const select = $('#test-currency');
   const current = select.value;
@@ -446,11 +447,7 @@ function openEditor(code) {
   form.enabled.checked = effect ? effect.enabled : true;
   form.commands.value = effect?.commands?.join('\n') || '';
   form.target.value = effect?.target || 'receiver';
-  form.cooldown.value = effect?.cooldown || '';
-  // Сила и длительность — только у встроенных событий, где они есть.
-  $('#editor-params').replaceChildren(...Object.entries(effect?.schema || {}).map(([param, [min, max]]) =>
-    h('label', {class: 'field price-field'}, S.paramNames?.[param] || param,
-      h('input', {type: 'number', min: String(min), max: String(max), step: '1', 'data-param': param, value: effect.params[param]}))));
+  Object.assign(form.price, priceStep(S.settings.currency));
   form.commands.required = custom;
   const remove = $('#editor-delete');
   remove.hidden = !effect || (!custom && !effect.renamed);
@@ -460,9 +457,9 @@ function openEditor(code) {
   const extras = Object.keys(S.settings.extraCurrencies);
   $('#extra-prices').replaceChildren(...(extras.length ? [h('span', {class: 'tool-label'}, 'Цены для зрителей в других валютах · пусто = по курсу')] : []),
     h('div', {class: 'row wrap'}, ...extras.map(currency => h('label', {class: 'field extra-price'}, `${currency} ${SYMBOL[currency] || ''}`,
-      h('input', {type: 'number', min: '1', step: '1', 'data-currency': currency,
+      h('input', {type: 'number', ...priceStep(currency), 'data-currency': currency,
         value: effect?.manual?.includes(currency) ? effect.prices[currency] : '',
-        placeholder: effect ? `${num(effect.prices[currency])} по курсу` : 'по курсу'})))));
+        placeholder: effect ? money(effect.prices[currency], currency) : 'по курсу'})))));
   $$('.money .cur').forEach(el => { el.textContent = SYMBOL[S.settings.currency] || S.settings.currency; });
   dialog.showModal();
   (effect ? form.price : form.name).focus();
@@ -483,8 +480,7 @@ $('#event-form').addEventListener('submit', async event => {
   const body = {code: editing?.code, name: form.name.value, desc: form.desc.value,
     price: Number(form.price.value), enabled: form.enabled.checked,
     prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)])),
-    target: form.target.value, cooldown: Number(form.cooldown.value || 0),
-    ...Object.fromEntries($$('#editor-params input[data-param]').map(input => [input.dataset.param, Number(input.value)]))};
+    target: form.target.value};
   if (!editing || editing.custom) body.commands = form.commands.value;
   try {
     apply(await api('/api/events/save', body));
@@ -515,9 +511,9 @@ function renderPriceStrip() {
 
 function priceText() {
   const enabled = S.catalog.filter(effect => S.settings.events[effect.code].enabled).sort((a, b) => priceOf(a.code) - priceOf(b.code));
-  const head = 'Задонать ровно эту сумму — и в моём Minecraft случится событие:';
+  const head = 'Задонать ровно эту сумму - и в моём Minecraft случится событие:';
   const lines = enabled.map(effect => [money(priceOf(effect.code)), ...Object.entries(effect.prices || {}).map(([currency, price]) => money(price, currency))]
-    .join(' / ') + ` — ${effect.name}`);
+    .join(' / ') + ` - ${effect.name}`);
   const link = S.da.profile?.code ? [`Донат: https://www.donationalerts.com/r/${S.da.profile.code}`] : [];
   return [head, ...lines, ...link].join('\n');
 }
@@ -537,7 +533,7 @@ async function testEffect(effect, button) {
   try {
     const result = await api('/api/test/effect', {code: effect.code});
     const name = effectOf(result.code)?.name || effect.name;
-    toast(result.simulated ? `Симуляция: ${name}` : `▶ ${name} — в игре`, 'ok');
+    toast(result.simulated ? `Симуляция: ${name}` : `▶ ${name} - в игре`, 'ok');
   } catch (error) {
     toast(`${effect.name}: ${error.message}`, 'bad');
   } finally {
@@ -550,7 +546,7 @@ function feedItem(item) {
   const effect = item.code ? effectOf(item.code) : null;
   const donor = h('b', {}, item.donor || 'Зритель');
   const title = effect ? [donor, h('span', {class: 'arrow'}, '→'), effect.name]
-    : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' — донат без события'];
+    : item.code ? [donor, h('span', {class: 'arrow'}, '→'), item.code] : [donor, ' - донат без события'];
   const details = [];
   if (item.amount != null) details.push(money(item.amount, item.currency));
   if (item.requested === 'random' && item.code !== 'random') details.push('🎲 случайное событие');
@@ -603,15 +599,15 @@ function fillForms() {
   mcForm.friendCode.value = '';
   mcForm.friendCode.placeholder = minecraft.hasFriendCode ? 'Сохранён' : 'из приложения друга';
   mcForm.password.value = '';
-  mcForm.password.placeholder = minecraft.hasPassword ? 'Сохранён — оставьте пустым' : 'rcon.password из server.properties';
+  mcForm.password.placeholder = minecraft.hasPassword ? 'Сохранён - оставьте пустым' : 'rcon.password из server.properties';
   const client = $('#client-form').elements;
   client.clientId.value = daClientId;
   client.clientId.placeholder = S.defaultClientId;
   client.clientSecret.value = '';
-  client.clientSecret.placeholder = S.settings.hasDaSecret ? 'Сохранён — оставьте пустым' : 'Необязательно';
+  client.clientSecret.placeholder = S.settings.hasDaSecret ? 'Сохранён - оставьте пустым' : 'Необязательно';
   $('#secret-hint').textContent = S.settings.hasDaSecret
     ? '✓ Секрет сохранён: вход через код, токен обновляется сам.'
-    : 'Без секрета используется упрощённый вход (Implicit). Если он не срабатывает — впишите Client Secret.';
+    : 'Без секрета используется упрощённый вход (Implicit). Если он не срабатывает - впишите Client Secret.';
   if (!S.settings.hasDaSecret && ['error', 'auth'].includes(S.da.state)) $('.advanced').open = true;
   $('#currency').replaceChildren(...S.currencies.map(code => h('option', {value: code}, `${code} ${SYMBOL[code] || ''}`)));
   $('#currency').value = S.settings.currency;
@@ -644,7 +640,7 @@ $('#chaos-toggle').addEventListener('click', () => {
 
 $('#currency').addEventListener('change', event => {
   const next = event.target.value;
-  if (!confirm(`Сделать ${next} основной валютой? Цифры цен останутся прежними — проверьте их, а курсы других валют будут взяты примерные.`)) {
+  if (!confirm(`Сделать ${next} основной валютой? Цифры цен останутся прежними - проверьте их, а курсы других валют будут взяты примерные.`)) {
     event.target.value = S.settings.currency;
     return;
   }
@@ -663,7 +659,7 @@ $('#test-donation').addEventListener('submit', async event => {
     const result = await api('/api/test/donation', {amount: Number(form.amount.value), currency: form.currency.value, username: form.username.value});
     const name = effectOf(result.code)?.name || 'Событие';
     const wait = result.dueAt ? Math.max(0, Math.round((result.dueAt - Date.now()) / 1000)) : 0;
-    toast(result.queued ? `${name} — в очереди${wait ? `, через ${wait} с` : ''}` : `${name}${result.simulated ? ' (симуляция)' : ' — в игре'}`, 'ok');
+    toast(result.queued ? `${name} - в очереди${wait ? `, через ${wait} с` : ''}` : `${name}${result.simulated ? ' (симуляция)' : ' - в игре'}`, 'ok');
   } catch (error) { toast(error.message, 'bad'); }
   finally { button.disabled = false; }
 });
@@ -753,7 +749,7 @@ async function init() {
   connectStream();
   let view = 'dashboard';
   try { view = localStorage.getItem('baranus-view') || view; } catch { /* без памяти */ }
-  if (POPOUT) { document.body.classList.add('popout'); document.title = 'События — Baranus Chaos'; show('events'); return; }
+  if (POPOUT) { document.body.classList.add('popout'); document.title = 'События - Baranus Chaos'; show('events'); return; }
   show($(`#view-${view}`) ? view : 'dashboard');
 }
 

@@ -17,7 +17,7 @@ function guard(contents) {
   contents.setWindowOpenHandler(({url}) => {
     if (url.startsWith(ORIGIN + '/?popout=')) {
       return {action: 'allow', overrideBrowserWindowOptions: {
-        width: 1180, height: 820, minWidth: 720, minHeight: 500, backgroundColor: '#0b0809', title: 'События — Baranus Chaos',
+        width: 560, height: 760, minWidth: 440, minHeight: 420, backgroundColor: '#0b0809', title: 'События - Baranus Chaos',
         autoHideMenuBar: true, icon: path.join(__dirname, 'public', 'icon.png'),
         webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}
       }};

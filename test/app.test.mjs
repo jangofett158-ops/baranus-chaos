@@ -128,7 +128,7 @@ test('тест события обходит паузу в игре, тесто�
   const ctx = await connected(minecraft);
   try {
     assert.equal((await ctx.post('/api/test/effect', {code: 'wolf'})).body.ok, true);
-    assert.ok(minecraft.log.includes(`baranuschaos test wolf Streamer ${Buffer.from('Тест').toString('base64url')} 1 0 0`));
+    assert.ok(minecraft.log.includes(`baranuschaos test wolf Streamer ${Buffer.from('Тест').toString('base64url')} 0 0 0`));
     const result = await ctx.post('/api/test/donation', {amount: 79, username: 'Петя'});
     assert.equal(result.body.code, 'wolf');
     assert.equal(result.body.queued, true);
@@ -193,14 +193,14 @@ test('зритель из другой страны: курс подтягива
     assert.match(requested[0], /open\.er-api\.com\/v6\/latest\/RUB$/);
     assert.equal(saved.body.settings.extraCurrencies.USD.rate, 10);
     assert.equal(saved.body.rates.state, 'ok');
-    assert.equal(saved.body.catalog.find(item => item.code === 'golem').prices.USD, 15); // 149 ₽ / 10 = 14,9 → 15 $
-    await donate(ctx, {id: 70, amount: 15, currency: 'USD', username: 'John'});
+    assert.equal(saved.body.catalog.find(item => item.code === 'golem').prices.USD, 14.9); // 149 ₽ / 10 = 14,90 $
+    await donate(ctx, {id: 70, amount: 14.9, currency: 'USD', username: 'John'});
     const {history} = await ctx.get('/api/state');
     const entry = history.find(item => item.donationId === '70');
     assert.equal(entry.state, 'done');
     assert.equal(entry.code, 'golem');
     assert.equal(entry.currency, 'USD');
-    const test = await ctx.post('/api/test/donation', {amount: 15, currency: 'USD'});
+    const test = await ctx.post('/api/test/donation', {amount: 14.9, currency: 'USD'});
     assert.equal(test.body.code, 'golem');
     await settle(ctx);
   } finally { await ctx.stop(); }
@@ -368,16 +368,18 @@ test('перенос настроек из версии 0.4.0', async () => {
   } finally { await ctx.stop(); }
 });
 
-test('очередь: задержка после доната, запуск сразу и отмена', async () => {
+test('очередь: задержка после доната, каждый следующий - ещё на задержку позже, запуск сразу и отмена', async () => {
   const minecraft = fakeMinecraft();
   const ctx = await connected(minecraft, {keepQueue: true});
   try {
-    await ctx.post('/api/settings', {queue: {delay: 30, gap: 5}});
+    await ctx.post('/api/settings', {queue: {delay: 30}});
     await ctx.app.onDonation(donation(80, 20));
     await ctx.app.onDonation(donation(81, 15));
     let state = await ctx.get('/api/state');
     assert.equal(state.queue.length, 2);
     assert.ok(state.queue[0].dueAt - Date.now() > 25_000, 'событие ждёт ~30 секунд');
+    const step = state.queue[1].dueAt - state.queue[0].dueAt;
+    assert.ok(step >= 29_900 && step <= 30_100, `второй донат - через 30 с после первого (было ${step} мс)`);
     assert.equal(minecraft.log.some(command => command.includes(' trigger ')), false);
     const run = await ctx.post('/api/queue/run', {id: state.queue[0].id});
     assert.equal(run.body.code, 'zombie');
@@ -390,7 +392,7 @@ test('очередь: задержка после доната, запуск с�
   } finally { await ctx.stop(); }
 });
 
-test('очередь ждёт, пока мод разрешит запуск (пауза между событиями и перезарядка)', async () => {
+test('очередь ждёт, пока мод разрешит запуск (общая пауза двух стримеров)', async () => {
   let waits = 2;
   const minecraft = fakeMinecraft({claimWait: () => (waits-- > 0 ? 20 : 0)});
   const ctx = await connected(minecraft);
@@ -401,18 +403,16 @@ test('очередь ждёт, пока мод разрешит запуск (п
   } finally { await ctx.stop(); }
 });
 
-test('кому срабатывает: эффекты — всем (@a), мобы — получателю; сила и длительность уходят в мод', async () => {
+test('кому срабатывает: эффекты - всем (@a), мобы - получателю', async () => {
   const minecraft = fakeMinecraft({players: 'Streamer,Friend'});
   const ctx = await connected(minecraft);
   try {
-    await ctx.post('/api/events/save', {code: 'speed', name: 'Скорость', icon: '⚡', price: 25, seconds: 60, level: 3});
-    await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, count: 3});
     await donate(ctx, donation(100, 25));
     await donate(ctx, donation(101, 20));
     const speed = minecraft.log.find(command => command.startsWith('baranuschaos trigger speed '));
     const zombie = minecraft.log.find(command => command.startsWith('baranuschaos trigger zombie '));
-    assert.match(speed, /^baranuschaos trigger speed @a \S+ 0 60 3$/);
-    assert.match(zombie, /^baranuschaos trigger zombie Streamer \S+ 3 0 0$/);
+    assert.match(speed, /^baranuschaos trigger speed @a \S+ 0 0 0$/, 'сила и длительность - по умолчанию мода');
+    assert.match(zombie, /^baranuschaos trigger zombie Streamer \S+ 0 0 0$/);
     await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, target: 'all'});
     await donate(ctx, donation(102, 20));
     assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger zombie @a ')));
@@ -424,8 +424,8 @@ test('синхронизация: настройки первого стриме
   const host = await connected(fakeMinecraft({world}));
   const guest = await connected(fakeMinecraft({world}));
   try {
-    await host.post('/api/events/save', {code: 'zombie', name: 'Мертвяк', icon: '💀', price: 33, count: 2, cooldown: 60});
-    await host.post('/api/settings', {queue: {delay: 25, gap: 7}});
+    await host.post('/api/events/save', {code: 'zombie', name: 'Мертвяк', icon: '💀', price: 33, target: 'all'});
+    await host.post('/api/settings', {queue: {delay: 25}});
     for (let i = 0; i < 100 && (await host.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20));
     assert.ok(world.revision > 0);
     await guest.post('/api/minecraft/check');
@@ -434,9 +434,8 @@ test('синхронизация: настройки первого стриме
     const zombie = synced.catalog.find(item => item.code === 'zombie');
     assert.equal(zombie.name, 'Мертвяк');
     assert.equal(zombie.price, 33);
-    assert.equal(zombie.params.count, 2);
-    assert.equal(zombie.cooldown, 60);
-    assert.deepEqual(synced.settings.queue, {delay: 25, gap: 7});
+    assert.equal(zombie.target, 'all');
+    assert.deepEqual(synced.settings.queue, {delay: 25});
     assert.equal(synced.settings.minecraft.player, 'Streamer', 'личные настройки не трогаются');
   } finally { await host.stop(); await guest.stop(); }
 });
@@ -479,13 +478,13 @@ test('синхронизация: одновременные правки дву
     await idle(host); await idle(guest);
     await guest.post('/api/minecraft/check'); await host.post('/api/minecraft/check');
     const saved = await host.post('/api/events/save', {name: 'Курица', icon: '🐔', price: 33, commands: 'summon minecraft:chicken ~ ~1 ~'});
-    await guest.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, cooldown: 40});
+    await guest.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, target: 'all'});
     await idle(host); await idle(guest);
     for (const ctx of [host, guest, host]) { await ctx.post('/api/minecraft/check'); await idle(ctx); }
     for (const ctx of [host, guest]) {
       const state = await ctx.get('/api/state');
       assert.ok(state.catalog.some(item => item.code === saved.body.savedCode), 'своё событие хозяина на месте');
-      assert.equal(state.catalog.find(item => item.code === 'zombie').cooldown, 40, 'перезарядка от друга на месте');
+      assert.equal(state.catalog.find(item => item.code === 'zombie').target, 'all', 'правка друга на месте');
     }
   } finally { await host.stop(); await guest.stop(); }
 });

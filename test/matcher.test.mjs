@@ -52,16 +52,15 @@ test('донат в другой валюте использует amount_in_use
   assert.match(matchDonation(normalizeDonation({id: 3, amount: 1, currency: 'USD'}), settings).reason, /USD/);
 });
 
-test('донаты в разных валютах: своя цена в каждой валюте', () => {
-  let multi = applyPatch(settings, {extraCurrencies: {USD: {rate: 10}, KZT: {rate: 0.2}}});
-  // Голем 149 ₽ → 14,9 $ → 15 $, зомби 20 ₽ → 100 ₸
-  const usd = normalizeDonation({id: 5, amount: 15, currency: 'USD'});
-  assert.equal(matchDonation(usd, multi).code, 'golem');
-  assert.equal(matchDonation(normalizeDonation({id: 9, amount: 14.9, currency: 'USD'}), multi).code, undefined, 'копейки не совпадают с целой ценой');
-  assert.equal(matchDonation(normalizeDonation({id: 6, amount: 100, currency: 'KZT'}), multi).code, 'zombie');
+test('донаты в разных валютах: своя цена в каждой валюте, у долларов - с копейками', () => {
+  let multi = applyPatch(settings, {extraCurrencies: {USD: {rate: 80}}});
+  // Голем 149 ₽ → 1,8625 $ → 1,87 $, зомби 20 ₽ → 0,25 $
+  assert.equal(matchDonation(normalizeDonation({id: 5, amount: 1.87, currency: 'USD'}), multi).code, 'golem');
+  assert.equal(matchDonation(normalizeDonation({id: 6, amount: 0.25, currency: 'USD'}), multi).code, 'zombie');
+  assert.equal(matchDonation(normalizeDonation({id: 9, amount: 1.86, currency: 'USD'}), multi).code, undefined, 'на цент меньше - не совпадает');
   // Ручная цена в долларах
-  multi = applyPatch(multi, {events: {golem: {prices: {USD: 50}}}});
-  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 50, currency: 'USD'}), multi).code, 'golem');
+  multi = applyPatch(multi, {events: {golem: {prices: {USD: 2.5}}}});
+  assert.equal(matchDonation(normalizeDonation({id: 7, amount: 2.5, currency: 'USD'}), multi).code, 'golem');
   // Валюта не добавлена и нет пересчёта от DonationAlerts
   assert.match(matchDonation(normalizeDonation({id: 8, amount: 5, currency: 'EUR'}), multi).reason, /EUR.*не добавлена/);
 });

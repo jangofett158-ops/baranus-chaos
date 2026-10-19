@@ -19,27 +19,40 @@ test('своё событие: создание, проверка команд, 
   assert.equal(removed.events.c_boom, undefined);
 });
 
-test('дополнительные валюты: цена по курсу, ручная цена, пересчёт и смена основной', () => {
+test('доллары и евро: цена по курсу до цента, ручная цена с копейками, пересчёт и смена основной', () => {
   let s = applyPatch(defaultSettings(), {extraCurrencies: {USD: {}, EUR: {rate: 100}}});
   assert.equal(s.extraCurrencies.USD.rate, 90);
-  assert.equal(priceIn(s, 'golem', 'USD'), 5);  // 149 / 90 = 1,66 → 5
-  assert.equal(priceIn(s, 'golem', 'EUR'), 5);
+  assert.equal(priceIn(s, 'golem', 'USD'), 1.66, '149 / 90 = 1,6555… → вверх до цента');
+  assert.equal(priceIn(s, 'golem', 'EUR'), 1.49);
+  assert.equal(priceIn(s, 'zombie', 'USD'), 0.23, '20 / 90 = 0,222… → 0,23');
   s = applyPatch(s, {events: {golem: {price: 1200}}});
-  assert.equal(priceIn(s, 'golem', 'EUR'), 15, 'цена по курсу следует за основной (12 → 15)');
-  s = applyPatch(s, {events: {golem: {prices: {EUR: 13}}}});
-  assert.equal(priceIn(s, 'golem', 'EUR'), 13, 'ручная цена — любая');
+  assert.equal(priceIn(s, 'golem', 'EUR'), 12, 'цена по курсу следует за основной');
+  s = applyPatch(s, {events: {golem: {prices: {EUR: 12.5}}}});
+  assert.equal(priceIn(s, 'golem', 'EUR'), 12.5, 'ручная цена с копейками');
   assert.deepEqual(effectiveEvents(s).find(e => e.code === 'golem').manual, ['EUR']);
+  s = applyPatch(s, {events: {golem: {prices: {USD: 0.999}}}});
+  assert.equal(priceIn(s, 'golem', 'USD'), 1, 'копейки - не больше двух знаков');
   s = applyPatch(s, {recalcPrices: true});
-  assert.equal(priceIn(s, 'golem', 'EUR'), 15);
-  assert.equal(priceIn(s, 'zombie', 'UAH'), null, 'не добавленная валюта не принимается');
-  assert.throws(() => applyPatch(s, {events: {zombie: {prices: {UAH: 5}}}}), /не добавлена/);
+  assert.equal(priceIn(s, 'golem', 'EUR'), 12);
+  assert.equal(applyPatch(s, {events: {zombie: {price: 20.4}}}).events.zombie.price, 20, 'рубли - только целыми');
+  assert.throws(() => applyPatch(s, {extraCurrencies: {UAH: {}}}), /Неизвестная валюта/, 'кроме ₽, $ и € валют нет');
   assert.throws(() => applyPatch(s, {extraCurrencies: {RUB: {}}}), /основная/);
-  assert.equal(priceIn(applyPatch(defaultSettings(), {extraCurrencies: {KZT: {}}}), 'golem', 'KZT'), 830); // 149 / 0.18 = 827,8 → 830
   const switched = applyPatch(s, {currency: 'USD'});
   assert.equal(switched.extraCurrencies.USD, undefined);
   assert.equal(switched.extraCurrencies.EUR.rate, 1.0889);
-  const reloaded = loadSettings(JSON.parse(JSON.stringify(applyPatch(s, {events: {zombie: {prices: {USD: 1}}}}))));
-  assert.equal(priceIn(reloaded, 'zombie', 'USD'), 1);
+  const reloaded = loadSettings(JSON.parse(JSON.stringify(applyPatch(s, {events: {zombie: {prices: {USD: 0.5}}}}))));
+  assert.equal(priceIn(reloaded, 'zombie', 'USD'), 0.5);
+});
+
+test('старые валюты и настройки прежних версий отбрасываются при загрузке', () => {
+  const raw = JSON.parse(JSON.stringify(applyPatch(defaultSettings(), {extraCurrencies: {USD: {rate: 90}}})));
+  raw.extraCurrencies.KZT = {rate: 0.18};
+  raw.events.zombie = {price: 20, enabled: true, cooldown: 30, count: 3, prices: {USD: 0.5, KZT: 100}};
+  raw.queue = {delay: 20, gap: 5};
+  const loaded = loadSettings(raw);
+  assert.deepEqual(Object.keys(loaded.extraCurrencies), ['USD']);
+  assert.deepEqual(loaded.events.zombie, {price: 20, enabled: true, prices: {USD: 0.5}}, 'цена в долларах осталась, тенге, перезарядка и количество - нет');
+  assert.deepEqual(loaded.queue, {delay: 20});
 });
 
 test('встроенное событие можно переименовать и вернуть как было', () => {
@@ -81,12 +94,12 @@ test('совместная игра: правки двух стримеров с
     customEvents: {c_0000beef: {name: 'Курица', icon: '🐔', desc: '', commands: 'summon minecraft:chicken ~ ~1 ~'}},
     events: {pig: {price: 10, enabled: true}}
   }));
-  const world = exportShared(applyPatch(applyPatch(defaultSettings(), {events: {zombie: {price: 20, enabled: true, cooldown: 40}}}), {queue: {delay: 15, gap: 3}}));
+  const world = exportShared(applyPatch(applyPatch(defaultSettings(), {events: {zombie: {price: 25, enabled: true, target: 'all'}}}), {queue: {delay: 15}}));
   const merged = mergeShared(base, host, world);
   assert.equal(merged.customEvents.c_0000beef.name, 'Курица', 'своё новое событие осталось');
   assert.equal(merged.events.pig.price, 10, 'своя правка цены осталась');
-  assert.equal(merged.events.zombie.cooldown, 40, 'правка друга подтянулась');
-  assert.deepEqual(merged.queue, {delay: 15, gap: 3});
+  assert.deepEqual([merged.events.zombie.price, merged.events.zombie.target], [25, 'all'], 'правка друга подтянулась');
+  assert.deepEqual(merged.queue, {delay: 15});
 
   const removed = structuredClone(base);
   const withHen = mergeShared(base, base, host);
