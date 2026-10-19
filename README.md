@@ -24,12 +24,12 @@
 2. **Подключения → Minecraft:**
    - **«🏠 Свой мир»** (по умолчанию) — откройте любой мир с модом, приложение подключится само, пароль не нужен.
    - **«🤝 Мир друга»** — играете в мире другого стримера (см. «Совместная игра»).
-   - **«🌐 Сервер (RCON)»** — сервер на другом компьютере.
+   - **«🌐 Сервер»** — сервер на другом компьютере.
 3. **События.** Проверьте цены, переименуйте события под себя или создайте свои.
 
 ### Сервер на другом компьютере
 
-Выберите «🌐 Сервер (RCON)» и включите RCON в `server.properties` сервера:
+Выберите «🌐 Сервер» и включите RCON в `server.properties` сервера:
 
 ```properties
 enable-rcon=true
@@ -92,3 +92,4 @@ rcon.password=длинный_пароль
 - Node.js 22+: `npm test`, `npm start` (панель в браузере), `npm run desktop`, `npm run dist` (EXE).
 - Мод: из папки `forge-mod` командой `gradle build` (Gradle 8.8, Java 17).
 - Иконка: `build/icon.ico` (EXE), `public/icon.png` (интерфейс).
+- Шрифт интерфейса: [Monocraft](https://github.com/IdreesInc/Monocraft) (SIL Open Font License 1.1, `public/fonts/OFL.txt`).

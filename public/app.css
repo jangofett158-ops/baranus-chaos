@@ -1,3 +1,7 @@
+/* Шрифт в стиле Minecraft - Monocraft (SIL OFL 1.1, fonts/OFL.txt), встроен в приложение: работает без интернета. */
+@font-face { font-family: "Monocraft"; src: url("/fonts/Monocraft.ttf") format("truetype"); font-weight: 100 600; font-display: block; }
+@font-face { font-family: "Monocraft"; src: url("/fonts/Monocraft-Bold.ttf") format("truetype"); font-weight: 700 900; font-display: block; }
+
 :root {
   --bg: #0b0809;
   --side: #100b0c;
@@ -16,8 +20,8 @@
   --warn: #ffb547;
   --bad: #ff4d6d;
   --radius: 18px;
-  --display: "Segoe UI Black", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --display: "Monocraft", "Segoe UI", system-ui, sans-serif;
+  --font: "Monocraft", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 
@@ -33,7 +37,7 @@ body {
   font: 15px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
 }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 h1, h2 { margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: .01em; }
 h1 { font-size: 34px; line-height: 1.05; }
@@ -214,7 +218,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .feed-sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .feed-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .feed-meta time { color: var(--dim); font-size: 12px; }
-.chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; background: var(--panel-3); color: var(--muted); white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; background: var(--panel-3); color: var(--muted); white-space: nowrap; }
 .chip.done { background: rgba(52, 226, 154, .14); color: var(--ok); }
 .chip.simulated { background: rgba(232, 38, 58, .2); color: var(--accent-2); }
 .chip.failed { background: rgba(255, 77, 109, .14); color: var(--bad); }
@@ -263,7 +267,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .fx-test { width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid rgba(232, 38, 58, .6); background: rgba(232, 38, 58, .12); color: var(--accent-2); font-size: 15px; }
 .fx-test:hover { background: var(--accent); color: #fff; }
 .fx-test:disabled { opacity: .5; }
-.fx-badge { position: absolute; top: 14px; right: 66px; height: 24px; padding: 0 8px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; background: rgba(255, 181, 71, .14); color: var(--warn); }
+.fx-badge { position: absolute; top: 14px; right: 66px; height: 24px; padding: 0 8px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; background: rgba(255, 181, 71, .14); color: var(--warn); }
 
 /* ---------- Подключения ---------- */
 .connect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
@@ -341,7 +345,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .fx-create .plus { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 28px; color: #fff; background: linear-gradient(130deg, var(--accent), var(--accent-3)); box-shadow: 0 8px 22px rgba(232, 38, 58, .35); }
 .fx-create b { font-size: 16px; color: var(--text); }
 .fx-create small { font-size: 12px; }
-.fx-tag { margin-left: 8px; vertical-align: middle; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 8px; background: rgba(232, 38, 58, .18); color: var(--accent-2); }
+.fx-tag { margin-left: 8px; vertical-align: middle; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 8px; background: rgba(232, 38, 58, .18); color: var(--accent-2); }
 .fx-edit { font-size: 16px; }
 
 .modal { width: min(620px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line-2); border-radius: 20px; background: var(--panel); color: var(--text); box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
@@ -413,7 +417,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .sync-state.ok { color: var(--ok); }
 .sync-state.bad { color: var(--bad); }
 .coop-info { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: rgba(52, 226, 154, .07); border: 1px solid rgba(52, 226, 154, .3); font-size: 14px; }
-.coop-info .code { font-family: Consolas, monospace; letter-spacing: .12em; color: var(--accent-2); }
+.coop-info .code { font-family: var(--font); letter-spacing: .12em; color: var(--accent-2); }
 .steps-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
 /* ---------- Отдельное окно событий ---------- */
