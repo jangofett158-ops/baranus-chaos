@@ -70,7 +70,10 @@ public final class ChaosCommands {
                         .then(Commands.argument("index", IntegerArgumentType.integer(0, 255))
                             .then(Commands.argument("total", IntegerArgumentType.integer(1, 256))
                                 .then(Commands.argument("data", StringArgumentType.word())
-                                    .executes(ChaosCommands::syncPut)))))))
+                                    .executes(context -> syncPut(context, -1))
+                                    // Ревизия, которую приложение прочитало перед записью: мир успел измениться - запись отклоняется.
+                                    .then(Commands.argument("expect", IntegerArgumentType.integer(0))
+                                        .executes(context -> syncPut(context, IntegerArgumentType.getInteger(context, "expect"))))))))))
             .then(Commands.literal("remote")
                 .executes(context -> remote(context.getSource(), null))
                 .then(Commands.literal("on").executes(context -> remote(context.getSource(), true)))
@@ -265,12 +268,12 @@ public final class ChaosCommands {
         return reply(source, "BaranusChaos:CHUNK " + index + " " + config.substring(from, Math.min(config.length(), from + CHUNK)), "Часть " + index);
     }
 
-    private static int syncPut(CommandContext<CommandSourceStack> context) {
+    private static int syncPut(CommandContext<CommandSourceStack> context, int expect) {
         CommandSourceStack source = context.getSource();
         try {
             int revision = ChaosState.get(source.getServer()).putPart(StringArgumentType.getString(context, "upload"),
                 IntegerArgumentType.getInteger(context, "index"), IntegerArgumentType.getInteger(context, "total"),
-                StringArgumentType.getString(context, "data"));
+                StringArgumentType.getString(context, "data"), expect);
             if (revision < 0) return reply(source, "BaranusChaos:PART " + IntegerArgumentType.getInteger(context, "index"), "Часть принята");
             ChaosNetwork.broadcastState(source.getServer()); // открытое меню сразу показывает новые цены
             return reply(source, "BaranusChaos:SYNCED " + revision, "Настройки сохранены");

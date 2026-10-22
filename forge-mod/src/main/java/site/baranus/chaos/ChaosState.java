@@ -62,14 +62,19 @@ public final class ChaosState extends SavedData {
     public int revision() { return revision; }
     public String config() { return config; }
 
-    /** Часть загрузки настроек. Возвращает новую ревизию, когда пришли все части, иначе -1. */
-    public synchronized int putPart(String uploadId, int index, int total, String data) {
+    /**
+     * Часть загрузки настроек. Возвращает новую ревизию, когда пришли все части, иначе -1.
+     * expect >= 0 - ревизия, на которой основана запись: если мир уже другой (второй стример успел сохранить
+     * свои правки), запись отклоняется с «conflict», и приложение сливает правки заново.
+     */
+    public synchronized int putPart(String uploadId, int index, int total, String data, int expect) {
         if (total < 1 || total > 256 || index < 0 || index >= total) throw new IllegalArgumentException("bad-part");
         String[] parts = uploads.computeIfAbsent(uploadId, id -> new String[total]);
         if (parts.length != total) throw new IllegalArgumentException("bad-part");
         parts[index] = data;
         for (String part : parts) if (part == null) return -1;
         uploads.remove(uploadId);
+        if (expect >= 0 && expect != revision) throw new IllegalArgumentException("conflict");
         String joined = String.join("", parts);
         if (joined.length() > MAX_CONFIG) throw new IllegalArgumentException("too-big");
         config = joined;

@@ -8,21 +8,23 @@ import {createApp} from '../lib/app.mjs';
 
 const publicDir = new URL('../public', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 
-function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0, config: ''}, claimWait = () => 0} = {}) {
+function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0, config: ''}, claimWait = () => 0, beforePut = null} = {}) {
   const log = [];
   let active = 0, maxActive = 0;
   const uploads = {};
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.3 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.4 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
     if (words[1] === 'sync' && words[2] === 'put') {
-      const [id, index, total, data] = [words[3], Number(words[4]), Number(words[5]), words[6]];
+      const [id, index, total, data, expect] = [words[3], Number(words[4]), Number(words[5]), words[6], words[7]];
       (uploads[id] ||= [])[index] = data;
       if (uploads[id].filter(Boolean).length < total) return `BaranusChaos:PART ${index}`;
+      beforePut?.(world);
+      if (expect !== undefined && Number(expect) !== world.revision) return 'BaranusChaos:ERROR conflict';
       world.config = uploads[id].join('');
       world.revision++;
       return `BaranusChaos:SYNCED ${world.revision}`;
@@ -504,6 +506,33 @@ test('синхронизация: одновременные правки дву
       assert.equal(state.catalog.find(item => item.code === 'zombie').target, 'all', 'правка друга на месте');
     }
   } finally { await host.stop(); await guest.stop(); }
+});
+
+test('синхронизация: если второй стример сохранил правки прямо во время записи, они сливаются, а не затираются', async () => {
+  const world = {revision: 0, config: ''};
+  let armed = false, raced = false;
+  // «Друг» успевает записать свою правку (задержка 12 с) между чтением и записью хозяина.
+  const beforePut = w => {
+    if (!armed || raced) return;
+    raced = true;
+    const shared = JSON.parse(Buffer.from(w.config, 'base64url').toString('utf8'));
+    shared.queue = {delay: 12};
+    w.config = Buffer.from(JSON.stringify(shared), 'utf8').toString('base64url');
+    w.revision++;
+  };
+  const host = await connected(fakeMinecraft({world, beforePut}));
+  const idle = async () => { for (let i = 0; i < 150 && (await host.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20)); };
+  try {
+    await idle();
+    armed = true;
+    await host.post('/api/events/save', {code: 'pig', name: 'Свинка', price: 17});
+    await idle();
+    assert.ok(raced, 'запись друга вклинилась');
+    const inWorld = JSON.parse(Buffer.from(world.config, 'base64url').toString('utf8'));
+    assert.equal(inWorld.events.pig.price, 17, 'правка хозяина не потерялась');
+    assert.deepEqual(inWorld.queue, {delay: 12}, 'правка друга не потерялась');
+    assert.deepEqual((await host.get('/api/state')).settings.queue, {delay: 12});
+  } finally { await host.stop(); }
 });
 
 test('мир друга: подключение по адресу Radmin с кодом доступа', async () => {
