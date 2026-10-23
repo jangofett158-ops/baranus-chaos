@@ -49,6 +49,12 @@ const money = (amount, currency = S.settings.currency) => {
     ? Number(amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : num(amount);
   return `${text} ${SYMBOL[currency] || currency}`;
 };
+/** Цена по курсу - как на сервере (settings.mjs convertPrice): $ и € вверх до цента, рубли - до числа на 0 или 5. */
+function convertLocal(price, currency) {
+  const rate = S.settings.extraCurrencies[currency]?.rate;
+  if (!rate || !(price > 0)) return null;
+  return fractional(currency) ? Math.max(0.01, Math.ceil(price / rate * 100 - 1e-6) / 100) : Math.max(5, Math.ceil(price / rate / 5 - 1e-9) * 5);
+}
 /** Шаг поля цены: 0,01 для долларов и евро, 1 для рублей. */
 const priceStep = currency => fractional(currency) ? {min: '0.01', step: '0.01'} : {min: '1', step: '1'};
 const effectOf = code => S.catalog.find(effect => effect.code === code);
@@ -330,6 +336,13 @@ function priceInput(effect, config) {
   return h('label', {class: 'fx-price', title: 'Цена ивента'},
     h('input', {type: 'number', ...priceStep(S.settings.currency), value: config.price, 'aria-label': `Цена: ${effect.name}`,
       onchange: event => save({events: {[effect.code]: {price: Number(event.target.value)}}}),
+      // Цены в $ и € под карточкой меняются сразу, пока вводится цена, а не только после сохранения.
+      oninput: event => {
+        for (const chip of event.target.closest('[data-code]')?.querySelectorAll('.fx-prices span[data-currency]:not(.manual)') || []) {
+          const value = convertLocal(Number(event.target.value), chip.dataset.currency);
+          if (value != null) chip.textContent = money(value, chip.dataset.currency);
+        }
+      },
       onkeydown: event => { if (event.key === 'Enter') event.target.blur(); }}),
     h('em', {}, SYMBOL[S.settings.currency] || S.settings.currency));
 }
@@ -337,7 +350,7 @@ function priceInput(effect, config) {
 function extraPrices(effect) {
   return Object.keys(effect.prices || {}).length
     ? h('button', {class: 'fx-prices', type: 'button', title: 'Цены в других валютах - нажмите, чтобы изменить', onclick: () => openEditor(effect.code)},
-      ...Object.entries(effect.prices).map(([currency, price]) => h('span', {class: effect.manual?.includes(currency) ? 'manual' : ''}, money(price, currency))))
+      ...Object.entries(effect.prices).map(([currency, price]) => h('span', {class: effect.manual?.includes(currency) ? 'manual' : '', dataset: {currency}}, money(price, currency))))
     : null;
 }
 
@@ -461,11 +474,22 @@ function openEditor(code) {
     h('div', {class: 'row wrap'}, ...extras.map(currency => h('label', {class: 'field extra-price'}, `${currency} ${SYMBOL[currency] || ''}`,
       h('input', {type: 'number', ...priceStep(currency), 'data-currency': currency,
         value: effect?.manual?.includes(currency) ? effect.prices[currency] : '',
-        placeholder: effect ? money(effect.prices[currency], currency) : 'по курсу'})))));
+        placeholder: 'по курсу'})))));
+  editorRates();
   $$('.money .cur').forEach(el => { el.textContent = SYMBOL[S.settings.currency] || S.settings.currency; });
   dialog.showModal();
   (effect ? form.price : form.name).focus();
 }
+
+/** Подсказки «по курсу» в редакторе считаются от цены, которую вводят сейчас. */
+function editorRates() {
+  const price = Number($('#event-form').elements.price.value);
+  for (const input of $$('#extra-prices input[data-currency]')) {
+    const value = convertLocal(price, input.dataset.currency);
+    input.placeholder = value == null ? 'по курсу' : money(value, input.dataset.currency);
+  }
+}
+$('#event-form').elements.price.addEventListener('input', editorRates);
 
 /** Свободная «круглая» цена для нового события, чтобы не совпасть с существующими. */
 function suggestPrice() {
