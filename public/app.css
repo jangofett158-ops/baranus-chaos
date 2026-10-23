@@ -372,7 +372,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .price-field { width: 140px; }
 .field textarea { padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line-2); background: #0e0a0b; color: var(--text); font: 13px/1.5 Consolas, monospace; text-transform: none; letter-spacing: 0; resize: vertical; outline: none; }
 .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232, 38, 58, .25); }
-.modal:not(.is-custom) .custom-only { display: none; }
+.modal:not(.has-script) .script-only { display: none; }
 .modal-actions { display: flex; gap: 10px; align-items: center; padding-top: 6px; }
 
 ::-webkit-scrollbar { width: 10px; }

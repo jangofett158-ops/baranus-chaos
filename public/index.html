@@ -79,8 +79,8 @@
         <div><h1>Ивенты</h1></div>
         <div class="head-actions">
           <button class="btn ghost" id="copy-price" type="button">Скопировать прайс</button>
-          <button class="btn ghost" id="import-ivents" type="button" title="Добавить свои ивенты из файла, который прислал другой стример">Загрузить ивенты</button>
-          <button class="btn ghost" id="export-ivents" type="button" title="Сохранить свои ивенты в файл на этом ПК - его можно отправить другому стримеру">Выгрузить ивенты</button>
+          <button class="btn ghost" id="import-ivents" type="button" title="Загрузить ивенты из файла, который прислал другой стример: встроенные получат его настройки, свои добавятся">Загрузить ивенты</button>
+          <button class="btn ghost" id="export-ivents" type="button" title="Сохранить все ивенты (встроенные и свои) в файл на этом ПК - его можно отправить другому стримеру">Выгрузить ивенты</button>
           <input type="file" id="import-file" accept=".json,application/json" hidden>
           <button class="btn primary" id="create-event" type="button">＋ Создать ивент</button>
         </div>
@@ -199,7 +199,7 @@
             <pre class="code-block">enable-rcon=true
 rcon.port=25575
 rcon.password=придумайте_длинный_пароль</pre>
-            <p class="hint">Мод <b>baranus-chaos-forge-1.5.4.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «Свой мир» - RCON не нужен.</p>
+            <p class="hint">Мод <b>baranus-chaos-forge-1.5.5.jar</b> положите в папку <b>mods</b> сервера и вашего клиента. Если сервер на этом же ПК, проще выбрать «Свой мир» - RCON не нужен.</p>
           </details>
         </section>
       </div>
@@ -224,10 +224,10 @@ rcon.password=придумайте_длинный_пароль</pre>
     <label class="field">Кому срабатывает
       <select name="target" class="select">
         <option value="receiver">Стримеру, которому пришёл донат</option>
-        <option value="all">Всем стримерам в мире</option>
+        <option value="all">Всем игрокам в мире</option>
       </select>
     </label>
-    <div class="custom-only stack">
+    <div class="script-only stack">
       <label class="field">Команды Minecraft - по одной в строке
         <textarea name="commands" rows="5" spellcheck="false" placeholder="effect give {player} minecraft:levitation 5 1&#10;summon minecraft:zombie ~2 ~ ~ {CustomName:'&quot;{donor}&quot;'}&#10;say {donor} устроил хаос!"></textarea>
       </label>    </div>

@@ -53,6 +53,14 @@ public final class ChaosCommands {
                     .executes(context -> cleanup(context.getSource(), EntityArgument.getPlayer(context, "target")))))
             .then(effectCommand("trigger", false))
             .then(effectCommand("test", true))
+            // Встроенное действие ивента для скрипта: «baranuschaos run zombie {player} {donor}» - без надписи и паузы
+            // (их делает сам скрипт ивента), поэтому его можно сочетать со своими командами.
+            .then(Commands.literal("run")
+                .then(Commands.argument("effect", StringArgumentType.word()).suggests(EFFECTS)
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .executes(context -> runEffect(context, null))
+                        .then(Commands.argument("donor", StringArgumentType.greedyString())
+                            .executes(context -> runEffect(context, StringArgumentType.getString(context, "donor")))))))
             .then(customCommand("custom", false))
             .then(customCommand("customtest", true))
             .then(Commands.literal("claim")
@@ -141,6 +149,26 @@ public final class ChaosCommands {
             "Ивент «" + ChaosEffects.EFFECTS.get(effect).label() + "» запущен");
     }
 
+    /** Действие встроенного ивента на игроков - для скриптов ивентов. */
+    private static int runEffect(CommandContext<CommandSourceStack> context, String donorText) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        String effect = StringArgumentType.getString(context, "effect");
+        if (!ChaosEffects.EFFECTS.containsKey(effect)) return error(source, "unknown");
+        String donor = ChaosEffects.cleanDonor(donorText, "Зритель");
+        int done = 0;
+        String firstError = null;
+        for (ServerPlayer target : EntityArgument.getPlayers(context, "targets")) {
+            try {
+                ChaosEffects.execute(effect, target, donor, ChaosEffects.Params.DEFAULT);
+                done++;
+            } catch (ChaosEffects.ChaosException failure) {
+                if (firstError == null) firstError = failure.getMessage();
+            }
+        }
+        if (done == 0) return error(source, firstError == null ? "failed" : firstError);
+        return reply(source, "BaranusChaos:OK " + effect + " " + done, "Действие «" + ChaosEffects.EFFECTS.get(effect).label() + "» выполнено");
+    }
+
     // ---------- Свои события ----------
 
     /**
@@ -215,7 +243,8 @@ public final class ChaosCommands {
         MinecraftServer server = source.getServer();
         String effect = "random".equals(code) ? ChaosCatalog.randomEnabled(server, new java.util.Random()) : code;
         if (effect == null) return error(source, "nothing-enabled");
-        if (ChaosEffects.EFFECTS.containsKey(effect)) {
+        List<String> script = ChaosCatalog.commands(server, effect);
+        if (script.isEmpty() && ChaosEffects.EFFECTS.containsKey(effect)) {
             try {
                 ChaosEffects.execute(effect, player, "Тест", ChaosCatalog.params(server, effect));
             } catch (ChaosEffects.ChaosException failure) {
@@ -225,17 +254,16 @@ public final class ChaosCommands {
             return reply(source, "BaranusChaos:OK " + effect + " " + player.getGameProfile().getName(),
                 "Проверка: «" + ChaosEffects.EFFECTS.get(effect).label() + "»");
         }
-        List<String> commands = ChaosCatalog.commands(server, code);
-        if (commands.isEmpty()) return error(source, "unknown");
+        if (script.isEmpty()) return error(source, "unknown");
         String failure = null;
-        for (String command : commands) {
+        for (String command : script) {
             String result = runAs(player, command, "Тест");
             if (result != null && failure == null) failure = result;
         }
-        ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(code)).findFirst().ifPresent(entry ->
+        ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(effect)).findFirst().ifPresent(entry ->
             ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));
         if (failure != null) source.sendFailure(Component.literal("Команда не выполнилась: " + failure));
-        return reply(source, "BaranusChaos:OK custom " + code, "Проверка своего ивента");
+        return reply(source, "BaranusChaos:OK custom " + effect, "Проверка ивента");
     }
 
     /** Включить или выключить событие из меню — изменение уходит в общие настройки и в оба приложения. */

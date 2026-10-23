@@ -275,7 +275,7 @@ try { layout = localStorage.getItem('baranus-layout') || 'grid'; sortMode = loca
 
 const TARGET_LABEL = {receiver: 'получателю', all: 'всем'};
 /** Коротко о событии: кому оно срабатывает. */
-const eventMeta = effect => effect.target === 'all' ? 'всем стримерам' : 'получателю доната';
+const eventMeta = effect => effect.target === 'all' ? 'всем игрокам' : 'получателю доната';
 
 function visibleEvents() {
   const query = search.trim().toLowerCase();
@@ -440,7 +440,8 @@ function openEditor(code) {
   const effect = code ? effectOf(code) : null;
   editing = effect;
   const custom = !effect || effect.custom;
-  dialog.classList.toggle('is-custom', custom);
+  // Скрипт есть у своих и у встроенных ивентов (у встроенного по умолчанию - одна команда мода); у «Случайного» - нет.
+  dialog.classList.toggle('has-script', !effect || effect.code !== 'random');
   $('#editor-title').textContent = !effect ? 'Новый ивент' : custom ? 'Свой ивент' : 'Встроенный ивент';
   form.name.value = effect?.name || '';
   form.desc.value = effect?.desc || '';
@@ -482,7 +483,7 @@ $('#event-form').addEventListener('submit', async event => {
     price: Number(form.price.value), enabled: form.enabled.checked,
     prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)])),
     target: form.target.value};
-  if (!editing || editing.custom) body.commands = form.commands.value;
+  if (!editing || editing.code !== 'random') body.commands = form.commands.value;
   try {
     apply(await api('/api/events/save', body));
     $('#event-editor').close();
@@ -492,7 +493,7 @@ $('#event-form').addEventListener('submit', async event => {
 });
 $('#editor-delete').addEventListener('click', async () => {
   if (!editing) return;
-  const question = editing.custom ? `Удалить ивент «${editing.name}»?` : `Вернуть исходное название, иконку и описание «${editing.original.name}»?`;
+  const question = editing.custom ? `Удалить ивент «${editing.name}»?` : `Вернуть исходное название, описание и команды «${editing.original.name}»?`;
   if (!confirm(question)) return;
   try {
     apply(await api('/api/events/delete', {code: editing.code}));
@@ -646,7 +647,6 @@ $('#copy-price').addEventListener('click', () => copy(priceText(), 'Прайс �
 $('#export-ivents').addEventListener('click', async () => {
   try {
     const file = await api('/api/events/export');
-    if (!file.ivents.length) { toast('Своих ивентов пока нет - создайте их кнопкой «Создать ивент»', 'bad'); return; }
     const blob = new Blob([JSON.stringify(file, null, 2)], {type: 'application/json'});
     const link = h('a', {href: URL.createObjectURL(blob), download: `baranus-ivents-${new Date().toISOString().slice(0, 10)}.json`});
     document.body.append(link);
@@ -663,16 +663,19 @@ $('#import-file').addEventListener('change', async event => {
   if (!picked) return;
   let file;
   try { file = JSON.parse(await picked.text()); } catch { toast('Файл не читается: это не файл ивентов Baranus Chaos', 'bad'); return; }
-  const count = Array.isArray(file?.ivents) ? file.ivents.length : 0;
-  if (!confirm(`Загрузить ивенты из «${picked.name}» (${count} шт.)? Команды из файла будут выполняться в игре - загружайте файлы только от тех, кому доверяете.`)) return;
+  const list = Array.isArray(file?.ivents) ? file.ivents : [];
+  const builtIn = list.filter(item => S.catalog.some(effect => !effect.custom && effect.code === item?.code)).length;
+  if (!confirm(`Загрузить ивенты из «${picked.name}»? Встроенных: ${builtIn} (их настройки заменятся), своих: ${list.length - builtIn}. Команды из файла будут выполняться в игре - загружайте файлы только от тех, кому доверяете.`)) return;
   try {
     const result = await api('/api/events/import', {file});
     apply(result);
-    const parts = [`Добавлено ивентов: ${result.imported}`];
+    const parts = [];
+    if (result.updated) parts.push(`обновлено встроенных: ${result.updated}`);
+    parts.push(`добавлено своих: ${result.imported}`);
     if (result.skipped) parts.push(`уже были: ${result.skipped}`);
     if (result.otherCurrency) parts.push(`цены в файле были в ${result.otherCurrency} - проверьте их`);
-    toast(parts.join(', '), result.imported ? 'ok' : '');
-    if (result.imported) { filter = 'custom'; renderEvents(); }
+    toast(parts.join(', ').replace(/^./, letter => letter.toUpperCase()), result.imported || result.updated ? 'ok' : '');
+    if (result.imported && !result.updated) { filter = 'custom'; renderEvents(); }
   } catch (error) { toast(error.message, 'bad'); }
 });
 $('#copy-price-dash').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));

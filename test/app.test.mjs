@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.4 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.5 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -188,10 +188,11 @@ test('свои ивенты: выгрузить файлом у одного с�
   try {
     await one.post('/api/events/save', {name: 'Фейерверк', price: 222, commands: 'summon minecraft:firework_rocket ~ ~1 ~'});
     const file = (await one.post('/api/events/export')).body;
-    assert.equal(file.ivents.length, 1);
+    assert.equal(file.ivents.filter(item => !item.code).length, 1);
     const loaded = await two.post('/api/events/import', {file});
     assert.equal(loaded.status, 200, JSON.stringify(loaded.body));
     assert.equal(loaded.body.imported, 1);
+    assert.equal(loaded.body.updated, 25, 'встроенные из файла обновились на месте');
     const ivent = loaded.body.catalog.find(item => item.name === 'Фейерверк');
     assert.ok(ivent?.custom);
     assert.equal(ivent.price, 222);
@@ -533,6 +534,23 @@ test('синхронизация: если второй стример сохр�
     assert.deepEqual(inWorld.queue, {delay: 12}, 'правка друга не потерялась');
     assert.deepEqual((await host.get('/api/state')).settings.queue, {delay: 12});
   } finally { await host.stop(); }
+});
+
+test('встроенный ивент со своим скриптом выполняется командами, без изменений - действием мода', async () => {
+  const minecraft = fakeMinecraft();
+  const ctx = await connected(minecraft);
+  const b64 = text => Buffer.from(text, 'utf8').toString('base64url');
+  try {
+    await donate(ctx, donation(301, 20));
+    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger zombie Streamer ')), 'по умолчанию - действие мода');
+    const saved = await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', price: 20, commands: 'baranuschaos run zombie {player} {donor}\nsay {donor} прислал зомби'});
+    assert.equal(saved.body.catalog.find(item => item.code === 'zombie').scripted, true);
+    minecraft.log.length = 0;
+    await donate(ctx, donation(302, 20));
+    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos custom Streamer ' + b64('Зомби') + ' ') && command.endsWith(b64('baranuschaos run zombie {player} {donor}'))));
+    assert.ok(minecraft.log.some(command => command.endsWith(b64('say {donor} прислал зомби'))));
+    assert.equal(minecraft.log.some(command => command.includes(' trigger zombie ')), false);
+  } finally { await ctx.stop(); }
 });
 
 test('мир друга: подключение по адресу Radmin с кодом доступа', async () => {

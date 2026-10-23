@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared, exportCustomEvents, importCustomEvents} from '../lib/settings.mjs';
+import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared, exportIvents, importIvents, defaultScript} from '../lib/settings.mjs';
 
 test('своё событие: создание, проверка команд, удаление', () => {
   const base = defaultSettings();
@@ -115,21 +115,50 @@ test('свои ивенты: выгрузка в файл и загрузка у
     customEvents: {c_aaaa0001: {name: 'Курица', icon: '🐔', desc: 'Сверху', commands: 'summon minecraft:chicken ~ ~2 ~'}},
     events: {c_aaaa0001: {price: 33, target: 'all', enabled: false, prices: {USD: 0.5}}}
   });
-  const file = JSON.parse(JSON.stringify(exportCustomEvents(mine)));
-  assert.equal(file.format, 'baranus-chaos-ivents');
-  assert.deepEqual(file.ivents, [{name: 'Курица', desc: 'Сверху', commands: ['summon minecraft:chicken ~ ~2 ~'], price: 33, prices: {USD: 0.5}, target: 'all', enabled: false}]);
+  const full = JSON.parse(JSON.stringify(exportIvents(mine)));
+  assert.equal(full.format, 'baranus-chaos-ivents');
+  assert.equal(full.ivents.filter(item => item.code).length, 25, 'встроенные тоже в файле');
+  const file = {...full, ivents: full.ivents.filter(item => !item.code)};
+  assert.deepEqual(file.ivents, [{name: 'Курица', desc: 'Сверху', commands: ['summon minecraft:chicken ~ ~2 ~'], price: 33, prices: {USD: 0.5}, enabled: false, target: 'all'}]);
 
-  const friend = importCustomEvents(defaultSettings(), file, makeCode);
-  assert.deepEqual([friend.added, friend.skipped, friend.otherCurrency], [1, 0, null]);
+  const friend = importIvents(defaultSettings(), file, makeCode);
+  assert.deepEqual([friend.added, friend.updated, friend.skipped, friend.otherCurrency], [1, 0, 0, null]);
   const code = Object.keys(friend.settings.customEvents)[0];
   assert.equal(friend.settings.customEvents[code].name, 'Курица');
   assert.deepEqual(friend.settings.events[code], {price: 33, enabled: false, target: 'all'}, 'цена в долларах не переносится, если у друга доллары не включены');
 
-  const again = importCustomEvents(friend.settings, file, makeCode);
+  const again = importIvents(friend.settings, file, makeCode);
   assert.deepEqual([again.added, again.skipped], [0, 1], 'тот же ивент второй раз не добавляется');
 
   const broken = {...file, ivents: [...file.ivents, {name: 'Пустой', commands: []}]};
-  assert.throws(() => importCustomEvents(defaultSettings(), broken, makeCode), /Ивент «Пустой»/);
-  assert.throws(() => importCustomEvents(defaultSettings(), {hello: 1}, makeCode), /не файл ивентов/);
-  assert.equal(importCustomEvents(applyPatch(defaultSettings(), {currency: 'USD'}), file, makeCode).otherCurrency, 'RUB');
+  assert.throws(() => importIvents(defaultSettings(), broken, makeCode), /Ивент «Пустой»/);
+  assert.throws(() => importIvents(defaultSettings(), {hello: 1}, makeCode), /не файл ивентов/);
+  assert.equal(importIvents(applyPatch(defaultSettings(), {currency: 'USD'}), file, makeCode).otherCurrency, 'RUB');
+});
+
+test('встроенные ивенты: скрипт по умолчанию, свой скрипт, сброс и перенос через файл', () => {
+  const base = defaultSettings();
+  const zombie = settings => effectiveEvents(settings).find(item => item.code === 'zombie');
+  assert.deepEqual(zombie(base).commands, ['baranuschaos run zombie {player} {donor}'], 'по умолчанию - команда мода');
+  assert.equal(zombie(base).scripted, false);
+  assert.deepEqual(effectiveEvents(base).find(item => item.code === 'random').commands, [], 'у случайного скрипта нет');
+  assert.throws(() => applyPatch(base, {events: {random: {commands: 'say hi'}}}), /случайного/);
+
+  const script = 'baranuschaos run zombie {player} {donor}\nsay {donor} прислал зомби';
+  const edited = applyPatch(base, {events: {zombie: {commands: script}}});
+  assert.deepEqual(edited.events.zombie.commands, ['baranuschaos run zombie {player} {donor}', 'say {donor} прислал зомби']);
+  assert.equal(zombie(edited).scripted, true);
+  assert.equal(zombie(edited).renamed, true, 'можно вернуть исходное');
+  assert.equal(applyPatch(edited, {events: {zombie: {commands: defaultScript('zombie')}}}).events.zombie.commands, undefined, 'скрипт как по умолчанию не хранится');
+  assert.equal(applyPatch(edited, {events: {zombie: {commands: ''}}}).events.zombie.commands, undefined, 'пустой - снова по умолчанию');
+  assert.equal(applyPatch(edited, {events: {zombie: {reset: true}}}).events.zombie.commands, undefined);
+
+  // Файл от друга: встроенный зомби с другим названием, ценой и скриптом обновляется на месте.
+  const friendFile = exportIvents(applyPatch(edited, {events: {zombie: {name: 'Мертвяк', price: 33}}}));
+  const loaded = importIvents(base, friendFile, () => 'c_00000001');
+  assert.deepEqual([loaded.added, loaded.updated], [0, 25]);
+  assert.equal(zombie(loaded.settings).name, 'Мертвяк');
+  assert.equal(zombie(loaded.settings).price, 33);
+  assert.deepEqual(loaded.settings.events.zombie.commands, edited.events.zombie.commands);
+  assert.deepEqual(loaded.settings.events.pig, base.events.pig, 'неизменённые встроенные остаются как есть');
 });

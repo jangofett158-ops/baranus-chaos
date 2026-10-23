@@ -104,7 +104,10 @@ public final class ChaosCatalog {
 
     /** Команды своего события, или пустой список. */
     public static List<String> commands(MinecraftServer server, String code) {
-        JsonObject custom = object(object(config(server), "customEvents"), code);
+        // Свой ивент - его команды; встроенный - изменённый в приложении скрипт (если не меняли - пусто, действие мода).
+        JsonObject config = config(server);
+        JsonObject custom = object(object(config, "customEvents"), code);
+        if (custom == null) custom = object(object(config, "events"), code);
         List<String> commands = new ArrayList<>();
         if (custom != null && custom.get("commands") instanceof JsonArray array) {
             for (JsonElement element : array) if (element.isJsonPrimitive() && commands.size() < 10) commands.add(element.getAsString());

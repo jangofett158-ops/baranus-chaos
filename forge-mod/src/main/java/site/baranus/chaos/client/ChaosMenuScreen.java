@@ -302,7 +302,7 @@ public final class ChaosMenuScreen extends Screen {
         g.drawString(font, ellipsis(desc, cardW - 18), x + 9, y + 19, item.enabled() ? 0xFFB9A9AE : 0xFF6E6266, false);
 
         // Нижняя строка: кому срабатывает, перезарядка, подсказка проверки.
-        StringBuilder meta = new StringBuilder(item.all() ? "всем стримерам" : "получателю");
+        StringBuilder meta = new StringBuilder(item.all() ? "всем игрокам" : "получателю");
         if (item.cooldown() > 0) meta.append(" · раз в ").append(item.cooldown()).append(" с");
         if (!item.enabled()) meta.append(" · выключено");
         int metaColor = item.enabled() ? 0xFF7D6B71 : 0xFF5E5357;
@@ -348,7 +348,7 @@ public final class ChaosMenuScreen extends Screen {
         lines.add(Component.literal(item.name()).withStyle(ChatFormatting.BOLD).getVisualOrderText());
         if (!item.desc().isEmpty()) lines.addAll(font.split(Component.literal(item.desc()).withStyle(ChatFormatting.GRAY), 200));
         lines.add(Component.literal("Цена: " + price(item)).withStyle(ChatFormatting.RED).getVisualOrderText());
-        lines.add(Component.literal(item.all() ? "Срабатывает у всех стримеров" : "Срабатывает у стримера, которому задонатили")
+        lines.add(Component.literal(item.all() ? "Срабатывает у всех игроков" : "Срабатывает у стримера, которому задонатили")
             .withStyle(ChatFormatting.DARK_GRAY).getVisualOrderText());
         if (item.cooldown() > 0)
             lines.add(Component.literal("Перезарядка: " + item.cooldown() + " с").withStyle(ChatFormatting.DARK_GRAY).getVisualOrderText());

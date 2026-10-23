@@ -96,13 +96,18 @@ public final class ChaosEffects {
     public static String decodeDonor(String token, String fallback) {
         if (token == null || token.isEmpty()) return fallback;
         try {
-            String raw = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
-            String clean = raw.replaceAll("[^\\p{L}\\p{N} _.\\-]", "").replaceAll("\\s+", " ").trim();
-            if (clean.length() > 24) clean = clean.substring(0, 24);
-            return clean.isEmpty() ? fallback : clean;
+            return cleanDonor(new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8), fallback);
         } catch (IllegalArgumentException error) {
             return fallback;
         }
+    }
+
+    /** Ник зрителя для показа: только буквы, цифры и « _.-», не длиннее 24 символов. */
+    public static String cleanDonor(String raw, String fallback) {
+        if (raw == null) return fallback;
+        String clean = raw.replaceAll("[^\\p{L}\\p{N} _.\\-]", "").replaceAll("\\s+", " ").trim();
+        if (clean.length() > 24) clean = clean.substring(0, 24);
+        return clean.isEmpty() ? fallback : clean;
     }
 
     /** Текст из base64url (подпись или команда своего события); null — если не декодируется или слишком длинный. */
