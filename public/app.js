@@ -310,8 +310,8 @@ function renderEvents() {
       category.name, h('span', {class: 'count'}, total));
   }));
 
-  // Не перерисовываем, пока пользователь вводит цену.
-  if (document.activeElement?.closest?.('#fx-grid input[type=number]')) return;
+  // Пока вводят цену, список не перестраиваем (иначе пропадёт набранное), но «×N», цены и $/€ обновляем на месте.
+  if (document.activeElement?.closest?.('#fx-grid input[type=number]')) { patchGrid(counts); return; }
   const grid = $('#fx-grid');
   // В отдельном окне - всегда компактный список: включить, цена, настроить.
   const list = POPOUT || layout === 'list';
@@ -359,6 +359,33 @@ const actionButtons = effect => [
   h('button', {class: 'fx-test', type: 'button', title: 'Запустить в игре сейчас', onclick: event => testEffect(effect, event.currentTarget)}, '▶')
 ];
 
+/** Значок «×N»: у нескольких включённых ивентов одна цена - выпадет случайный из них. */
+function dupBadge(same, row) {
+  if (!(same > 1)) return null;
+  return h('span', {class: row ? 'fx-tag dice' : 'fx-badge', title: 'У нескольких ивентов эта цена - выпадет случайный'}, `×${same}`);
+}
+
+/** Обновить карточки на месте, не трогая поле, в котором сейчас вводят цену. */
+function patchGrid(counts) {
+  for (const el of $$('#fx-grid [data-code]')) {
+    const effect = effectOf(el.dataset.code);
+    const config = S.settings.events[el.dataset.code];
+    if (!effect || !config) continue;
+    const row = el.classList.contains('fx-row');
+    el.querySelector('.fx-badge, .fx-tag.dice')?.remove();
+    const badge = dupBadge(config.enabled ? counts.get(cents(config.price)) : 0, row);
+    if (badge) row ? el.querySelector('.fx-name').append(badge) : el.querySelector('.fx-top').after(badge);
+    const input = el.querySelector('.fx-price input');
+    if (input && input !== document.activeElement) input.value = config.price;
+    const fresh = extraPrices(effect);
+    const chips = el.querySelector('.fx-prices');
+    if (chips && fresh) chips.replaceWith(fresh);
+    el.classList.toggle('off', !config.enabled);
+    const toggle = el.querySelector('.switch-row input');
+    if (toggle) toggle.checked = config.enabled;
+  }
+}
+
 function fxCard(effect, counts) {
   const config = S.settings.events[effect.code];
   const same = config.enabled ? counts.get(cents(config.price)) : 0;
@@ -366,7 +393,7 @@ function fxCard(effect, counts) {
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
       enabledSwitch(effect, config)),
-    same > 1 ? h('span', {class: 'fx-badge', title: 'У нескольких ивентов эта цена - выпадет случайный'}, `×${same}`) : null,
+    dupBadge(same, false),
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
@@ -380,7 +407,7 @@ function fxRow(effect, counts) {
     enabledSwitch(effect, config),
     h('div', {class: 'fx-row-main'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null,
-        same > 1 ? h('span', {class: 'fx-tag dice', title: 'Одинаковая цена - выпадет случайное'}, `×${same}`) : null),
+        dupBadge(same, true)),
       h('div', {class: 'fx-meta'}, eventMeta(effect))),
     ...(POPOUT ? [] : [extraPrices(effect) || h('span')]),
     priceInput(effect, config),

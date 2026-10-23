@@ -28,6 +28,7 @@
       "server.mjs",
       "lib/**/*",
       "public/**/*",
+      "build/icon.ico",
       "package.json"
     ],
     "win": {
