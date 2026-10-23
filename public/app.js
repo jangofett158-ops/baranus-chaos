@@ -373,7 +373,7 @@ function patchGrid(counts) {
     const row = el.classList.contains('fx-row');
     el.querySelector('.fx-badge, .fx-tag.dice')?.remove();
     const badge = dupBadge(config.enabled ? counts.get(cents(config.price)) : 0, row);
-    if (badge) row ? el.querySelector('.fx-name').append(badge) : el.querySelector('.fx-side').prepend(badge);
+    if (badge) row ? el.querySelector('.fx-name').append(badge) : el.querySelector('.fx-foot').append(badge);
     const input = el.querySelector('.fx-price input');
     if (input && input !== document.activeElement) input.value = config.price;
     const fresh = extraPrices(effect);
@@ -391,11 +391,12 @@ function fxCard(effect, counts) {
   return h('article', {class: `fx ${config.enabled ? '' : 'off'}`, dataset: {code: effect.code}},
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
-      h('div', {class: 'fx-side'}, dupBadge(same, false), enabledSwitch(effect, config))),
+      enabledSwitch(effect, config)),
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
-    extraPrices(effect));
+    // Цены в $/€ слева, «×N» справа - под кнопкой запуска.
+    h('div', {class: 'fx-foot'}, extraPrices(effect) || h('span'), dupBadge(same, false)));
 }
 
 function fxRow(effect, counts) {
