@@ -108,7 +108,7 @@ test('совместная игра: правки двух стримеров с
   assert.deepEqual(mergeShared(null, host, world), host, 'без общей точки — свои настройки');
 });
 
-test('свои ивенты: выгрузка в файл и загрузка у другого стримера, дубли пропускаются', () => {
+test('свои ивенты: выгрузка в файл и загрузка у другого стримера, файл заменяет свои ивенты полностью', () => {
   let n = 0;
   const makeCode = () => `c_${String(++n).padStart(8, '0')}`;
   const mine = applyPatch(applyPatch(defaultSettings(), {extraCurrencies: {USD: {rate: 80}}}), {
@@ -128,7 +128,14 @@ test('свои ивенты: выгрузка в файл и загрузка у
   assert.deepEqual(friend.settings.events[code], {price: 33, enabled: false, target: 'all'}, 'цена в долларах не переносится, если у друга доллары не включены');
 
   const again = importIvents(friend.settings, file, makeCode);
-  assert.deepEqual([again.added, again.skipped], [0, 1], 'тот же ивент второй раз не добавляется');
+  assert.deepEqual([again.added, again.skipped, again.removed], [1, 0, 1], 'повторная загрузка не плодит копии');
+  assert.deepEqual(Object.keys(again.settings.customEvents), [code], 'совпавший ивент сохраняет код');
+  const other = applyPatch(friend.settings, {customEvents: {c_bbbb0001: {name: 'Старый', desc: '', commands: 'say old'}}});
+  const replaced = importIvents(other, file, makeCode);
+  assert.deepEqual(Object.values(replaced.settings.customEvents).map(item => item.name), ['Курица'], 'ивенты, которых нет в файле, удаляются');
+  assert.equal(replaced.settings.events.c_bbbb0001, undefined);
+  const twice = importIvents(defaultSettings(), {...file, ivents: [...file.ivents, ...file.ivents]}, makeCode);
+  assert.deepEqual([twice.added, twice.skipped], [1, 1], 'дубль внутри файла пропускается');
 
   const broken = {...file, ivents: [...file.ivents, {name: 'Пустой', commands: []}]};
   assert.throws(() => importIvents(defaultSettings(), broken, makeCode), /Ивент «Пустой»/);

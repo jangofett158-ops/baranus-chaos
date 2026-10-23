@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
@@ -30,6 +32,9 @@ public final class ChaosCommands {
     private static final SuggestionProvider<CommandSourceStack> EFFECTS =
         (context, builder) -> SharedSuggestionProvider.suggest(ChaosEffects.CODES, builder);
     private static final int CHUNK = 1000;
+    /** Приставка строки скрипта: «всем:» - каждому игроку в мире, «получателю:» - тому, кому пришёл донат. */
+    private static final Pattern WHO = Pattern.compile("^\\s*(всем|all|получателю|receiver)\\s*:\\s*",
+        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private ChaosCommands() { }
 
@@ -194,8 +199,14 @@ public final class ChaosCommands {
         }
         String template = ChaosEffects.decodeText(StringArgumentType.getString(context, "command"), 1000);
         if (template == null || template.isBlank() || template.contains("\n")) return error(source, "bad-command");
+        // «всем:» - для каждого игрока в мире; «получателю:» - цель уже выбрало приложение, приставку просто убираем.
+        Matcher who = WHO.matcher(template);
+        if (who.find()) {
+            if (isAll(who)) targets = source.getServer().getPlayerList().getPlayers();
+            template = template.substring(who.end());
+        }
         if (template.startsWith("/")) template = template.substring(1);
-        String donor = ChaosEffects.decodeDonor(StringArgumentType.getString(context, "donor"), test ? "Тест" : "Зритель");
+        String donor =ChaosEffects.decodeDonor(StringArgumentType.getString(context, "donor"), test ? "Тест" : "Зритель");
         String failure = null;
         int ok = 0;
         for (ServerPlayer target : targets) {
@@ -213,6 +224,11 @@ public final class ChaosCommands {
                 ChaosEffects.announceAll(source.getServer(), new ChaosEffects.Info(label.replace("§", ""), ChatFormatting.RED), donor);
         }
         return reply(source, "BaranusChaos:OK custom " + ok, "Свой ивент выполнен");
+    }
+
+    private static boolean isAll(Matcher who) {
+        String word = who.group(1).toLowerCase(java.util.Locale.ROOT);
+        return word.equals("всем") || word.equals("all");
     }
 
     /** Команда своего события от имени игрока (уровень прав 2). null — успех, иначе текст ошибки Minecraft. */
@@ -257,8 +273,16 @@ public final class ChaosCommands {
         if (script.isEmpty()) return error(source, "unknown");
         String failure = null;
         for (String command : script) {
-            String result = runAs(player, command, "Тест");
-            if (result != null && failure == null) failure = result;
+            Matcher who = WHO.matcher(command);
+            Collection<ServerPlayer> targets = List.of(player);
+            if (who.find()) {
+                if (isAll(who)) targets = server.getPlayerList().getPlayers();
+                command = command.substring(who.end());
+            }
+            for (ServerPlayer target : targets) {
+                String result = runAs(target, command, "Тест");
+                if (result != null && failure == null) failure = result;
+            }
         }
         ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(effect)).findFirst().ifPresent(entry ->
             ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));

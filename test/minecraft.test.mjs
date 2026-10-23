@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import {MinecraftBridge, sanitizeDonor, donorToken} from '../lib/minecraft.mjs';
+import {MinecraftBridge, sanitizeDonor, donorToken, scriptTarget} from '../lib/minecraft.mjs';
 import {rconSend} from '../lib/rcon.mjs';
 
 const connection = {host: '127.0.0.1', port: 25575, password: 'secret'};
@@ -44,6 +44,21 @@ test('своё событие: команда в base64url и понятная �
   assert.equal(Buffer.from(command, 'base64url').toString(), 'say привет {donor}');
   const bad = new MinecraftBridge({send: async () => 'BaranusChaos:ERROR command Unknown or incomplete command, see below for error'});
   await assert.rejects(() => bad.custom(connection, 'Steve', 'x', 'y', ['sya hi']), /не выполнилась: Unknown/);
+});
+
+test('приставки в скрипте: «всем:» - всем игрокам, «получателю:» - тому, кому пришёл донат', async () => {
+  assert.equal(scriptTarget('всем: effect give {player} speed'), 'all');
+  assert.equal(scriptTarget('ВСЕМ :say hi'), 'all');
+  assert.equal(scriptTarget('получателю: say hi'), 'receiver');
+  assert.equal(scriptTarget('say всем: привет'), null);
+  const sent = [];
+  const bridge = new MinecraftBridge({send: async ({command}) => { sent.push(command); return 'BaranusChaos:OK custom 1'; }});
+  await bridge.custom(connection, '@a', 'Аня', 'Салют', ['say a', 'получателю: say b', 'всем: say c'], {receiver: 'Steve'});
+  assert.deepEqual(sent.map(command => command.split(' ')[2]), ['@a', 'Steve', '@a']);
+  sent.length = 0;
+  await bridge.custom(connection, 'Steve', 'Аня', 'Салют', ['всем: say c']);
+  assert.equal(sent[0].split(' ')[2], '@a');
+  await assert.rejects(() => bridge.custom(connection, '@a', 'Аня', 'x', ['получателю: say b'], {receiver: ''}), /ник ещё не определён/);
 });
 
 test('статус мода: версия, пауза и игроки', async () => {

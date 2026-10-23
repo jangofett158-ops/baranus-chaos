@@ -223,7 +223,15 @@ rcon.password=придумайте_длинный_пароль</pre>
     <div class="script-only stack">
       <label class="field">Команды Minecraft - по одной в строке
         <textarea name="commands" rows="5" spellcheck="false" placeholder="effect give {player} minecraft:levitation 5 1&#10;summon minecraft:zombie ~2 ~ ~ {CustomName:'&quot;{donor}&quot;'}&#10;say {donor} устроил хаос!"></textarea>
-      </label>    </div>
+      </label>
+      <div class="script-tools" id="script-tools">
+        <button type="button" class="btn small" data-prefix="всем: " title="Строка выполнится для каждого игрока в мире">всем:</button>
+        <button type="button" class="btn small" data-prefix="получателю: " title="Строка выполнится только для того, кому пришёл донат">получателю:</button>
+        <button type="button" class="btn small" data-insert="{player}" title="Ник игрока, для которого выполняется строка">{player}</button>
+        <button type="button" class="btn small" data-insert="{donor}" title="Ник того, кто задонатил">{donor}</button>
+      </div>
+      <p class="set-note">«всем:» или «получателю:» в начале строки - кому эта команда. Без них - как выбрано в «Кому срабатывает».</p>
+    </div>
     <label class="switch-row"><input type="checkbox" name="enabled"><span class="switch"></span><span><b>Ивент включён</b></span></label>
     <div class="modal-actions">
       <button class="btn ghost danger" type="button" id="editor-delete">Удалить</button>

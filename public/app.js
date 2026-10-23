@@ -373,7 +373,7 @@ function patchGrid(counts) {
     const row = el.classList.contains('fx-row');
     el.querySelector('.fx-badge, .fx-tag.dice')?.remove();
     const badge = dupBadge(config.enabled ? counts.get(cents(config.price)) : 0, row);
-    if (badge) row ? el.querySelector('.fx-name').append(badge) : el.querySelector('.fx-top').after(badge);
+    if (badge) row ? el.querySelector('.fx-name').append(badge) : el.querySelector('.fx-side').prepend(badge);
     const input = el.querySelector('.fx-price input');
     if (input && input !== document.activeElement) input.value = config.price;
     const fresh = extraPrices(effect);
@@ -391,8 +391,7 @@ function fxCard(effect, counts) {
   return h('article', {class: `fx ${config.enabled ? '' : 'off'}`, dataset: {code: effect.code}},
     h('div', {class: 'fx-top'},
       h('div', {class: 'fx-name'}, effect.name, effect.custom ? h('span', {class: 'fx-tag'}, 'своё') : null),
-      enabledSwitch(effect, config)),
-    dupBadge(same, false),
+      h('div', {class: 'fx-side'}, dupBadge(same, false), enabledSwitch(effect, config))),
     h('div', {class: 'fx-desc'}, effect.desc || (effect.custom ? `${effect.commands.length} ${plural(effect.commands.length, 'команда', 'команды', 'команд')}` : '')),
     h('div', {class: 'fx-meta'}, eventMeta(effect)),
     h('div', {class: 'fx-bottom'}, priceInput(effect, config), ...actionButtons(effect)),
@@ -551,6 +550,25 @@ $('#editor-delete').addEventListener('click', async () => {
     toast(editing.custom ? 'Ивент удалён' : 'Исходные данные возвращены', 'ok');
   } catch (error) { toast(error.message, 'bad'); }
 });
+// Кнопки над скриптом: приставка «всем:»/«получателю:» встаёт в начало текущей строки (заменяя прежнюю), {player}/{donor} - в место курсора.
+$('#script-tools').addEventListener('click', event => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  const area = $('#event-form').commands;
+  const {value, selectionStart: start, selectionEnd: end} = area;
+  if (button.dataset.prefix) {
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = value.indexOf('\n', start) === -1 ? value.length : value.indexOf('\n', start);
+    const line = value.slice(lineStart, lineEnd).replace(/^\s*(всем|all|получателю|receiver)\s*:\s*/iu, '');
+    area.value = value.slice(0, lineStart) + button.dataset.prefix + line + value.slice(lineEnd);
+    area.selectionStart = area.selectionEnd = lineStart + button.dataset.prefix.length + line.length;
+  } else {
+    area.value = value.slice(0, start) + button.dataset.insert + value.slice(end);
+    area.selectionStart = area.selectionEnd = start + button.dataset.insert.length;
+  }
+  area.focus();
+});
+
 $('#editor-test').addEventListener('click', event => { if (editing) testEffect(editing, event.currentTarget); });
 
 function priceText() {
@@ -714,17 +732,19 @@ $('#import-file').addEventListener('change', async event => {
   try { file = JSON.parse(await picked.text()); } catch { toast('Файл не читается: это не файл ивентов Baranus Chaos', 'bad'); return; }
   const list = Array.isArray(file?.ivents) ? file.ivents : [];
   const builtIn = list.filter(item => S.catalog.some(effect => !effect.custom && effect.code === item?.code)).length;
-  if (!confirm(`Загрузить ивенты из «${picked.name}»? Встроенных: ${builtIn} (их настройки заменятся), своих: ${list.length - builtIn}. Команды из файла будут выполняться в игре - загружайте файлы только от тех, кому доверяете.`)) return;
+  const mine = S.catalog.filter(effect => effect.custom).length;
+  if (!confirm(`Загрузить ивенты из «${picked.name}»? Настройки заменятся тем, что в файле: встроенных ${builtIn}, своих ${list.length - builtIn}${mine ? ` (ваши свои ивенты - ${mine} шт. - будут удалены)` : ''}. Команды из файла будут выполняться в игре - загружайте файлы только от тех, кому доверяете.`)) return;
   try {
     const result = await api('/api/events/import', {file});
     apply(result);
     const parts = [];
     if (result.updated) parts.push(`обновлено встроенных: ${result.updated}`);
-    parts.push(`добавлено своих: ${result.imported}`);
-    if (result.skipped) parts.push(`уже были: ${result.skipped}`);
+    parts.push(`своих из файла: ${result.imported}`);
+    if (result.skipped) parts.push(`повторов в файле пропущено: ${result.skipped}`);
     if (result.otherCurrency) parts.push(`цены в файле были в ${result.otherCurrency} - проверьте их`);
     toast(parts.join(', ').replace(/^./, letter => letter.toUpperCase()), result.imported || result.updated ? 'ok' : '');
     if (result.imported && !result.updated) { filter = 'custom'; renderEvents(); }
+    else if (!result.imported && filter === 'custom') { filter = 'all'; renderEvents(); }
   } catch (error) { toast(error.message, 'bad'); }
 });
 $('#copy-price-dash').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));

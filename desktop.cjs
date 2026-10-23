@@ -73,9 +73,21 @@ function createTray() {
   });
 }
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// Какой файл запущен: у portable-EXE - сам EXE, а не его распакованная копия во временной папке.
+const OWN_EXE = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+
+if (!app.requestSingleInstanceLock({exe: OWN_EXE})) app.quit();
 else {
-  app.on('second-instance', focusWindow);
+  // Запустили другой файл программы (например, новую версию), пока эта работает в фоне, - уступаем место ему.
+  // Тот же файл - просто показываем окно.
+  app.on('second-instance', (event, argv, cwd, data) => {
+    const exe = typeof data?.exe === 'string' ? data.exe : '';
+    if (exe && exe.toLowerCase() !== OWN_EXE.toLowerCase() && require('fs').existsSync(exe)) {
+      app.relaunch({execPath: exe, args: []});
+      quitting = true;
+      app.quit();
+    } else focusWindow();
+  });
   app.on('before-quit', () => { quitting = true; });
   app.whenReady().then(async () => {
     try {
