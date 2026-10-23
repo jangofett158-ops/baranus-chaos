@@ -297,7 +297,6 @@ function renderEvents() {
   const {settings, catalog, categories} = S;
   $('#currency').value = settings.currency;
   renderCurrencies();
-  $('#code-trigger').checked = settings.codeTrigger;
   if (document.activeElement !== $('#queue-delay')) $('#queue-delay').value = settings.queue.delay;
   $$('#fx-layout button').forEach(button => button.classList.toggle('active', button.dataset.layout === layout));
   $('#fx-sort').value = sortMode;
@@ -691,7 +690,6 @@ $('#currency').addEventListener('change', event => {
   }
   save({currency: next}, `Основная валюта: ${next}`);
 });
-$('#code-trigger').addEventListener('change', event => save({codeTrigger: event.target.checked}));
 $('#copy-price').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
 
 // ---------- Свои ивенты: файл для обмена ----------

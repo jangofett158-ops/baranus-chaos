@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultSettings, applyPatch} from '../lib/settings.mjs';
-import {matchDonation, normalizeDonation, extractDonation, resolveRandom, codesIn} from '../lib/matcher.mjs';
+import {matchDonation, normalizeDonation, extractDonation, resolveRandom} from '../lib/matcher.mjs';
 
 const settings = defaultSettings();
 const donation = (amount, extra = {}) => normalizeDonation({id: 1, amount, currency: 'RUB', username: 'Вася', message: '', ...extra});
@@ -39,12 +39,9 @@ test('выключенные события не срабатывают', () => 
   assert.equal(matchDonation(donation(20), off).code, undefined);
 });
 
-test('код в сообщении выбирает событие, если хватает суммы', () => {
-  assert.deepEqual(matchDonation(donation(100, {message: 'держи !creeper'}), settings), {code: 'creeper', via: 'code', pool: 1});
-  assert.match(matchDonation(donation(20, {message: '!creeper'}), settings).reason, /нужно 60/);
-  const noCodes = applyPatch(settings, {codeTrigger: false});
-  assert.equal(matchDonation(donation(20, {message: '!creeper'}), noCodes).code, 'zombie');
-  assert.deepEqual(codesIn('!Zombie, ура !pig.'), ['zombie', 'pig']);
+test('код в сообщении ничего не выбирает: ивент - только по точной сумме', () => {
+  assert.equal(matchDonation(donation(20, {message: 'держи !creeper'}), settings).code, 'zombie');
+  assert.equal(matchDonation(donation(100, {message: '!creeper'}), settings).code, 'random');
 });
 
 test('донат в другой валюте использует amount_in_user_currency', () => {
