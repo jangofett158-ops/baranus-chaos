@@ -36,6 +36,13 @@
     },
     "directories": {
       "output": "dist"
+    },
+    "electronLanguages": [
+      "ru",
+      "en-US"
+    ],
+    "portable": {
+      "splashImage": "build/splash.bmp"
     }
   }
 }
