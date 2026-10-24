@@ -5,8 +5,8 @@
 - **Мод для Minecraft 1.20.1 (Forge):** [baranus-chaos-forge-1.5.7.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-chaos-forge-1.5.7.jar)
 - **Мобы для ивентов (Forge):** [chaosmobs-1.0.0.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/chaosmobs-1.0.0.jar)
 - **Настройки ивентов:** [baranus-ivents-2026-10-24.json](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-ivents-2026-10-24.json)
-- **Сборка модов:** [baranus-modpack-1.7.5.rar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-modpack-1.7.5.rar)
-События и мобы
+- **Сборка майна с шейдерами и модами:** [baranus-modpack-1.7.5.rar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-modpack-1.7.5.rar)
+
 
 /nuke [секунды] [радиус]: ядерный удар по месту, где стоишь. По умолчанию 90 секунд и радиус 250.
 
