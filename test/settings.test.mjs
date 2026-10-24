@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, mergeShared, exportIvents, importIvents, defaultScript} from '../lib/settings.mjs';
+import {defaultSettings, applyPatch, loadSettings, effectiveEvents, priceIn, exportShared, importShared, mergeShared, exportIvents, importIvents, defaultScript} from '../lib/settings.mjs';
 
 test('своё событие: создание, проверка команд, удаление', () => {
   const base = defaultSettings();
@@ -94,11 +94,11 @@ test('совместная игра: правки двух стримеров с
     customEvents: {c_0000beef: {name: 'Курица', icon: '🐔', desc: '', commands: 'summon minecraft:chicken ~ ~1 ~'}},
     events: {pig: {price: 10, enabled: true}}
   }));
-  const world = exportShared(applyPatch(applyPatch(defaultSettings(), {events: {zombie: {price: 25, enabled: true, target: 'all'}}}), {queue: {delay: 15}}));
+  const world = exportShared(applyPatch(applyPatch(defaultSettings(), {events: {zombie: {price: 25, enabled: true, commands: 'baranuschaos run zombie {player@a} {donor}'}}}), {queue: {delay: 15}}));
   const merged = mergeShared(base, host, world);
   assert.equal(merged.customEvents.c_0000beef.name, 'Курица', 'своё новое событие осталось');
   assert.equal(merged.events.pig.price, 10, 'своя правка цены осталась');
-  assert.deepEqual([merged.events.zombie.price, merged.events.zombie.target], [25, 'all'], 'правка друга подтянулась');
+  assert.deepEqual([merged.events.zombie.price, merged.events.zombie.commands], [25, ['baranuschaos run zombie {player@a} {donor}']], 'правка друга подтянулась');
   assert.deepEqual(merged.queue, {delay: 15});
 
   const removed = structuredClone(base);
@@ -113,19 +113,19 @@ test('свои ивенты: выгрузка в файл и загрузка у
   const makeCode = () => `c_${String(++n).padStart(8, '0')}`;
   const mine = applyPatch(applyPatch(defaultSettings(), {extraCurrencies: {USD: {rate: 80}}}), {
     customEvents: {c_aaaa0001: {name: 'Курица', icon: '🐔', desc: 'Сверху', commands: 'summon minecraft:chicken ~ ~2 ~'}},
-    events: {c_aaaa0001: {price: 33, target: 'all', enabled: false, prices: {USD: 0.5}}}
+    events: {c_aaaa0001: {price: 33, enabled: false, prices: {USD: 0.5}}}
   });
   const full = JSON.parse(JSON.stringify(exportIvents(mine)));
   assert.equal(full.format, 'baranus-chaos-ivents');
   assert.equal(full.ivents.filter(item => item.code).length, 25, 'встроенные тоже в файле');
   const file = {...full, ivents: full.ivents.filter(item => !item.code)};
-  assert.deepEqual(file.ivents, [{name: 'Курица', desc: 'Сверху', commands: ['summon minecraft:chicken ~ ~2 ~'], price: 33, prices: {USD: 0.5}, enabled: false, target: 'all'}]);
+  assert.deepEqual(file.ivents, [{name: 'Курица', desc: 'Сверху', commands: ['summon minecraft:chicken ~ ~2 ~'], price: 33, prices: {USD: 0.5}, enabled: false}]);
 
   const friend = importIvents(defaultSettings(), file, makeCode);
   assert.deepEqual([friend.added, friend.updated, friend.skipped, friend.otherCurrency], [1, 0, 0, null]);
   const code = Object.keys(friend.settings.customEvents)[0];
   assert.equal(friend.settings.customEvents[code].name, 'Курица');
-  assert.deepEqual(friend.settings.events[code], {price: 33, enabled: false, target: 'all'}, 'цена в долларах не переносится, если у друга доллары не включены');
+  assert.deepEqual(friend.settings.events[code], {price: 33, enabled: false}, 'цена в долларах не переносится, если у друга доллары не включены');
 
   const again = importIvents(friend.settings, file, makeCode);
   assert.deepEqual([again.added, again.skipped, again.removed], [1, 0, 1], 'повторная загрузка не плодит копии');
@@ -168,4 +168,30 @@ test('встроенные ивенты: скрипт по умолчанию, �
   assert.equal(zombie(loaded.settings).price, 33);
   assert.deepEqual(loaded.settings.events.zombie.commands, edited.events.zombie.commands);
   assert.deepEqual(loaded.settings.events.pig, base.events.pig, 'неизменённые встроенные остаются как есть');
+});
+
+test('скрипты прежнего формата («Кому срабатывает», «всем:»/«получателю:») переводятся на {player@a}', () => {
+  const old = {
+    events: {
+      heal: {price: 49, enabled: true, target: 'receiver', commands: ['получателю: chaosalert "Исцеление" {donor}', 'всем: baranuschaos run heal {player} {donor}']},
+      zombie: {price: 73, enabled: true, target: 'all'},
+      speed: {price: 25, enabled: true, target: 'receiver'},
+      c_0000beef: {price: 299, enabled: true, target: 'all'}
+    },
+    customEvents: {c_0000beef: {name: 'Остров', icon: '🏝', desc: '', commands: ['say {player}', 'получателю: tp {player} 0 100 0']}}
+  };
+  const settings = loadSettings(old);
+  assert.equal(settings.scriptFormat, 2);
+  assert.deepEqual(settings.events.heal.commands, ['chaosalert "Исцеление" {donor}', 'baranuschaos run heal {player@a} {donor}']);
+  assert.deepEqual(settings.events.zombie.commands, ['baranuschaos run zombie {player@a} {donor}'], 'мобы «всем» - теперь в скрипте');
+  assert.deepEqual(settings.events.speed.commands, ['baranuschaos run speed {player} {donor}'], 'эффект «получателю» - тоже');
+  assert.equal(settings.events.heal.target, undefined);
+  assert.deepEqual(settings.customEvents.c_0000beef.commands, ['say {player@a}', 'tp {player} 0 100 0']);
+  assert.deepEqual(loadSettings(settings).events, settings.events, 'новый формат второй раз не меняется');
+  const fromWorld = importShared(defaultSettings(), {events: {zombie: {price: 5, enabled: true, target: 'all'}}});
+  assert.deepEqual(fromWorld.events.zombie.commands, ['baranuschaos run zombie {player@a} {donor}'], 'настройки из мира прежней версии');
+  const file = {format: 'baranus-chaos-ivents', version: 2, ivents: [{name: 'Курица', commands: ['summon minecraft:chicken {player}'], target: 'all', price: 5}]};
+  const imported = importIvents(defaultSettings(), file, () => 'c_00000001').settings;
+  assert.deepEqual(imported.customEvents.c_00000001.commands, ['summon minecraft:chicken {player@a}'], 'файл прежней версии');
+  assert.equal(effectiveEvents(imported).find(item => item.code === 'c_00000001').target, 'all');
 });

@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
@@ -32,9 +30,6 @@ public final class ChaosCommands {
     private static final SuggestionProvider<CommandSourceStack> EFFECTS =
         (context, builder) -> SharedSuggestionProvider.suggest(ChaosEffects.CODES, builder);
     private static final int CHUNK = 1000;
-    /** Приставка строки скрипта: «всем:» - каждому игроку в мире, «получателю:» - тому, кому пришёл донат. */
-    private static final Pattern WHO = Pattern.compile("^\\s*(всем|all|получателю|receiver)\\s*:\\s*",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private ChaosCommands() { }
 
@@ -68,6 +63,12 @@ public final class ChaosCommands {
                             .executes(context -> runEffect(context, StringArgumentType.getString(context, "donor")))))))
             .then(customCommand("custom", false))
             .then(customCommand("customtest", true))
+            // Первый донат: «first <код>» - был ли ивент уже в этом мире, «done» - отметить, «reset» - снова первый раз.
+            .then(Commands.literal("first")
+                .then(Commands.argument("code", StringArgumentType.word())
+                    .executes(context -> first(context.getSource(), StringArgumentType.getString(context, "code"), null))
+                    .then(Commands.literal("done").executes(context -> first(context.getSource(), StringArgumentType.getString(context, "code"), true)))
+                    .then(Commands.literal("reset").executes(context -> first(context.getSource(), StringArgumentType.getString(context, "code"), false)))))
             .then(Commands.literal("claim")
                 .then(Commands.argument("code", StringArgumentType.word())
                     .then(Commands.argument("gap", IntegerArgumentType.integer(0, 3600))
@@ -199,12 +200,6 @@ public final class ChaosCommands {
         }
         String template = ChaosEffects.decodeText(StringArgumentType.getString(context, "command"), 1000);
         if (template == null || template.isBlank() || template.contains("\n")) return error(source, "bad-command");
-        // «всем:» - для каждого игрока в мире; «получателю:» - цель уже выбрало приложение, приставку просто убираем.
-        Matcher who = WHO.matcher(template);
-        if (who.find()) {
-            if (isAll(who)) targets = source.getServer().getPlayerList().getPlayers();
-            template = template.substring(who.end());
-        }
         if (template.startsWith("/")) template = template.substring(1);
         String donor =ChaosEffects.decodeDonor(StringArgumentType.getString(context, "donor"), test ? "Тест" : "Зритель");
         String failure = null;
@@ -226,14 +221,20 @@ public final class ChaosCommands {
         return reply(source, "BaranusChaos:OK custom " + ok, "Свой ивент выполнен");
     }
 
-    private static boolean isAll(Matcher who) {
-        String word = who.group(1).toLowerCase(java.util.Locale.ROOT);
-        return word.equals("всем") || word.equals("all");
+    private static int first(CommandSourceStack source, String code, Boolean done) {
+        if (!code.matches("[a-z0-9_]{1,24}")) return error(source, "unknown");
+        ChaosState state = ChaosState.get(source.getServer());
+        if (done == null) return reply(source, "BaranusChaos:FIRST " + (state.isFirst(code) ? "yes" : "no"), "Первый донат: " + code);
+        state.setFirstDone(code, done);
+        return reply(source, "BaranusChaos:FIRST " + (done ? "done" : "reset"), done ? "Первый донат отмечен" : "Следующий донат снова первый");
     }
 
-    /** Команда своего события от имени игрока (уровень прав 2). null — успех, иначе текст ошибки Minecraft. */
+    /**
+     * Команда своего события от имени игрока (уровень прав 2). {player} - его ник, {player@a} - все игроки (@a),
+     * {donor} - ник зрителя. null — успех, иначе текст ошибки Minecraft.
+     */
     private static String runAs(ServerPlayer target, String template, String donor) {
-        String command = template.replace("{player}", target.getGameProfile().getName()).replace("{donor}", donor);
+        String command = template.replace("{player@a}", "@a").replace("{player}", target.getGameProfile().getName()).replace("{donor}", donor);
         if (command.startsWith("/")) command = command.substring(1);
         StringBuilder output = new StringBuilder();
         CommandSource collector = new CommandSource() {
@@ -259,7 +260,10 @@ public final class ChaosCommands {
         MinecraftServer server = source.getServer();
         String effect = "random".equals(code) ? ChaosCatalog.randomEnabled(server, new java.util.Random()) : code;
         if (effect == null) return error(source, "nothing-enabled");
-        List<String> script = ChaosCatalog.commands(server, effect);
+        // Проверка из меню не отмечает первый донат: показывает то, что выполнит ближайший настоящий донат.
+        List<String> first = ChaosCatalog.firstCommands(server, effect);
+        List<String> script = !first.isEmpty() && ChaosState.get(server).isFirst(effect) ? first : ChaosCatalog.commands(server, effect);
+        if (script.isEmpty() && !first.isEmpty()) script = ChaosCatalog.defaultScript(effect);
         if (script.isEmpty() && ChaosEffects.EFFECTS.containsKey(effect)) {
             try {
                 ChaosEffects.execute(effect, player, "Тест", ChaosCatalog.params(server, effect));
@@ -273,16 +277,8 @@ public final class ChaosCommands {
         if (script.isEmpty()) return error(source, "unknown");
         String failure = null;
         for (String command : script) {
-            Matcher who = WHO.matcher(command);
-            Collection<ServerPlayer> targets = List.of(player);
-            if (who.find()) {
-                if (isAll(who)) targets = server.getPlayerList().getPlayers();
-                command = command.substring(who.end());
-            }
-            for (ServerPlayer target : targets) {
-                String result = runAs(target, command, "Тест");
-                if (result != null && failure == null) failure = result;
-            }
+            String result = runAs(player, command, "Тест");
+            if (result != null && failure == null) failure = result;
         }
         ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(effect)).findFirst().ifPresent(entry ->
             ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));

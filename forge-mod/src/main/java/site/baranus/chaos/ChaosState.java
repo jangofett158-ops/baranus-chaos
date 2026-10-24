@@ -20,6 +20,8 @@ public final class ChaosState extends SavedData {
     private int revision;
     private boolean remote;
     private String accessCode = "";
+    // Ивенты с отдельными командами для первого доната, которые в этом мире уже срабатывали.
+    private final java.util.Set<String> firstDone = new java.util.TreeSet<>();
 
     // Очередь не сохраняется в мир: последнее событие вообще и по каждому коду (мс).
     private long lastEventAt;
@@ -38,6 +40,7 @@ public final class ChaosState extends SavedData {
         state.revision = tag.getInt("Revision");
         state.remote = tag.getBoolean("Remote");
         state.accessCode = tag.getString("AccessCode");
+        for (String code : tag.getString("FirstDone").split(",")) if (!code.isEmpty()) state.firstDone.add(code);
         return state;
     }
 
@@ -48,7 +51,16 @@ public final class ChaosState extends SavedData {
         tag.putInt("Revision", revision);
         tag.putBoolean("Remote", remote);
         tag.putString("AccessCode", accessCode);
+        tag.putString("FirstDone", String.join(",", firstDone));
         return tag;
+    }
+
+    // ---------- Первый донат ----------
+    /** true - ивент с командами «для первого доната» в этом мире ещё не срабатывал. */
+    public synchronized boolean isFirst(String code) { return !firstDone.contains(code); }
+
+    public synchronized void setFirstDone(String code, boolean done) {
+        if (done ? firstDone.add(code) : firstDone.remove(code)) setDirty();
     }
 
     public boolean paused() { return paused; }

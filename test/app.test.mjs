@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.5 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.6 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -28,6 +28,12 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
       world.config = uploads[id].join('');
       world.revision++;
       return `BaranusChaos:SYNCED ${world.revision}`;
+    }
+    if (words[1] === 'first') {
+      const done = world.firsts ||= new Set();
+      if (words[3] === 'done') { done.add(words[2]); return 'BaranusChaos:FIRST done'; }
+      if (words[3] === 'reset') { done.delete(words[2]); return 'BaranusChaos:FIRST reset'; }
+      return 'BaranusChaos:FIRST ' + (done.has(words[2]) ? 'no' : 'yes');
     }
     if (words[1] === 'remote') return `BaranusChaos:REMOTE ${words[2] === 'on' ? 1 : 0} ABCD2345`;
     active++; maxActive = Math.max(maxActive, active);
@@ -423,7 +429,7 @@ test('очередь ждёт, пока мод разрешит запуск (о
   } finally { await ctx.stop(); }
 });
 
-test('кому срабатывает: эффекты - всем (@a), мобы - получателю', async () => {
+test('кому срабатывает: эффекты - всем (@a), мобы - получателю, {player@a} в скрипте - всем', async () => {
   const minecraft = fakeMinecraft({players: 'Streamer,Friend'});
   const ctx = await connected(minecraft);
   try {
@@ -433,9 +439,32 @@ test('кому срабатывает: эффекты - всем (@a), мобы 
     const zombie = minecraft.log.find(command => command.startsWith('baranuschaos trigger zombie '));
     assert.match(speed, /^baranuschaos trigger speed @a \S+ 0 0 0$/, 'сила и длительность - по умолчанию мода');
     assert.match(zombie, /^baranuschaos trigger zombie Streamer \S+ 0 0 0$/);
-    await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, target: 'all'});
+    await ctx.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, commands: 'baranuschaos run zombie {player@a} {donor}'});
     await donate(ctx, donation(102, 20));
-    assert.ok(minecraft.log.some(command => command.startsWith('baranuschaos trigger zombie @a ')));
+    const script = minecraft.log.find(command => command.startsWith('baranuschaos custom Streamer '));
+    assert.equal(Buffer.from(script.split(' ').pop(), 'base64url').toString(), 'baranuschaos run zombie {player@a} {donor}', 'мод сам подставит @a');
+    assert.equal((await ctx.get('/api/state')).catalog.find(item => item.code === 'zombie').target, 'all');
+  } finally { await ctx.stop(); }
+});
+
+test('первый донат: свои команды в первый раз, потом обычные; проверка ▶ не считается; можно сбросить', async () => {
+  const minecraft = fakeMinecraft();
+  const ctx = await connected(minecraft);
+  const scripts = () => minecraft.log.filter(command => command.startsWith('baranuschaos custom')).map(command => Buffer.from(command.split(' ').pop(), 'base64url').toString());
+  try {
+    const saved = await ctx.post('/api/events/save', {name: 'Остров', price: 77, commands: 'island2 donation {player@a}', firstCommands: 'island tp {player@a}'});
+    const code = saved.body.savedCode;
+    assert.deepEqual(saved.body.catalog.find(item => item.code === code).firstCommands, ['island tp {player@a}']);
+    assert.ok((await ctx.post('/api/test/effect', {code})).body.ok);
+    assert.equal(minecraft.world.firsts?.has(code) ?? false, false, 'проверка не отмечает первый раз');
+    await donate(ctx, donation(301, 77));
+    await donate(ctx, donation(302, 77));
+    assert.deepEqual(scripts(), ['island tp {player@a}', 'island tp {player@a}', 'island2 donation {player@a}']);
+    assert.ok((await ctx.post('/api/events/first-reset', {code})).body.ok);
+    await donate(ctx, donation(303, 77));
+    assert.equal(scripts().pop(), 'island tp {player@a}', 'после сброса - снова первый остров');
+    const cleared = await ctx.post('/api/events/save', {code, name: 'Остров', price: 77, commands: 'island2 donation {player@a}', firstCommands: ''});
+    assert.equal(cleared.body.catalog.find(item => item.code === code).firstCommands, null, 'пусто - без первого раза');
   } finally { await ctx.stop(); }
 });
 
@@ -444,7 +473,7 @@ test('синхронизация: настройки первого стриме
   const host = await connected(fakeMinecraft({world}));
   const guest = await connected(fakeMinecraft({world}));
   try {
-    await host.post('/api/events/save', {code: 'zombie', name: 'Мертвяк', icon: '💀', price: 33, target: 'all'});
+    await host.post('/api/events/save', {code: 'zombie', name: 'Мертвяк', icon: '💀', price: 33, commands: 'baranuschaos run zombie {player@a} {donor}'});
     await host.post('/api/settings', {queue: {delay: 25}});
     for (let i = 0; i < 100 && (await host.get('/api/state')).sync.dirty; i++) await new Promise(resolve => setTimeout(resolve, 20));
     assert.ok(world.revision > 0);
@@ -498,7 +527,7 @@ test('синхронизация: одновременные правки дву
     await idle(host); await idle(guest);
     await guest.post('/api/minecraft/check'); await host.post('/api/minecraft/check');
     const saved = await host.post('/api/events/save', {name: 'Курица', icon: '🐔', price: 33, commands: 'summon minecraft:chicken ~ ~1 ~'});
-    await guest.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, target: 'all'});
+    await guest.post('/api/events/save', {code: 'zombie', name: 'Зомби', icon: '🧟', price: 20, commands: 'baranuschaos run zombie {player@a} {donor}'});
     await idle(host); await idle(guest);
     for (const ctx of [host, guest, host]) { await ctx.post('/api/minecraft/check'); await idle(ctx); }
     for (const ctx of [host, guest]) {

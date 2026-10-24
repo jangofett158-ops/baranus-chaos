@@ -281,7 +281,9 @@ try { layout = localStorage.getItem('baranus-layout') || 'grid'; sortMode = loca
 
 const TARGET_LABEL = {receiver: 'получателю', all: 'всем'};
 /** Коротко о событии: кому оно срабатывает. */
-const eventMeta = effect => effect.target === 'all' ? 'всем игрокам' : 'получателю доната';
+// Кому - по командам ивента ({player} - получатель, {player@a} - все); «первый донат» - если у ивента есть отдельные команды.
+const eventMeta = effect => ({all: 'всем игрокам', both: 'получателю и всем'}[effect.target] || 'получателю доната')
+  + (effect.firstCommands ? ' · первый донат - отдельно' : '');
 
 function visibleEvents() {
   const query = search.trim().toLowerCase();
@@ -487,7 +489,10 @@ function openEditor(code) {
   form.price.value = effect ? priceOf(effect.code) : suggestPrice();
   form.enabled.checked = effect ? effect.enabled : true;
   form.commands.value = effect?.commands?.join('\n') || '';
-  form.target.value = effect?.target || 'receiver';
+  form.firstCommands.value = effect?.firstCommands?.join('\n') || '';
+  form.hasFirst.checked = !!effect?.firstCommands;
+  showFirst();
+  $('#first-reset').hidden = !effect?.firstCommands;
   Object.assign(form.price, priceStep(S.settings.currency));
   form.commands.required = custom;
   const remove = $('#editor-delete');
@@ -531,9 +536,11 @@ $('#event-form').addEventListener('submit', async event => {
   const form = event.target.elements;
   const body = {code: editing?.code, name: form.name.value, desc: form.desc.value,
     price: Number(form.price.value), enabled: form.enabled.checked,
-    prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)])),
-    target: form.target.value};
-  if (!editing || editing.code !== 'random') body.commands = form.commands.value;
+    prices: Object.fromEntries($$('#extra-prices input[data-currency]').map(input => [input.dataset.currency, input.value === '' ? null : Number(input.value)]))};
+  if (!editing || editing.code !== 'random') {
+    body.commands = form.commands.value;
+    body.firstCommands = form.hasFirst.checked ? form.firstCommands.value : '';
+  }
   try {
     apply(await api('/api/events/save', body));
     $('#event-editor').close();
@@ -551,23 +558,23 @@ $('#editor-delete').addEventListener('click', async () => {
     toast(editing.custom ? 'Ивент удалён' : 'Исходные данные возвращены', 'ok');
   } catch (error) { toast(error.message, 'bad'); }
 });
-// Кнопки над скриптом: приставка «всем:»/«получателю:» встаёт в начало текущей строки (заменяя прежнюю), {player}/{donor} - в место курсора.
-$('#script-tools').addEventListener('click', event => {
-  const button = event.target.closest('button');
-  if (!button) return;
-  const area = $('#event-form').commands;
-  const {value, selectionStart: start, selectionEnd: end} = area;
-  if (button.dataset.prefix) {
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-    const lineEnd = value.indexOf('\n', start) === -1 ? value.length : value.indexOf('\n', start);
-    const line = value.slice(lineStart, lineEnd).replace(/^\s*(всем|all|получателю|receiver)\s*:\s*/iu, '');
-    area.value = value.slice(0, lineStart) + button.dataset.prefix + line + value.slice(lineEnd);
-    area.selectionStart = area.selectionEnd = lineStart + button.dataset.prefix.length + line.length;
-  } else {
-    area.value = value.slice(0, start) + button.dataset.insert + value.slice(end);
-    area.selectionStart = area.selectionEnd = start + button.dataset.insert.length;
-  }
-  area.focus();
+/** «Первый донат - другие команды»: показать поле для первого раза; основное поле - для следующих донатов. */
+function showFirst() {
+  const form = $('#event-form');
+  const on = form.elements.hasFirst.checked;
+  form.classList.toggle('first-on', on);
+  $('#commands-label').textContent = on ? 'Команды для следующих донатов' : 'Команды Minecraft - по одной в строке';
+}
+$('#event-form').elements.hasFirst.addEventListener('change', () => {
+  showFirst();
+  if ($('#event-form').elements.hasFirst.checked) $('#event-form').elements.firstCommands.focus();
+});
+$('#first-reset').addEventListener('click', async () => {
+  if (!editing) return;
+  try {
+    await api('/api/events/first-reset', {code: editing.code});
+    toast('Следующий донат снова выполнит команды для первого раза', 'ok');
+  } catch (error) { toast(error.message, 'bad'); }
 });
 
 $('#editor-test').addEventListener('click', event => { if (editing) testEffect(editing, event.currentTarget); });

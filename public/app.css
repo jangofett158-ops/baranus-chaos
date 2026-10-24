@@ -242,8 +242,9 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .delay-field input:focus { border-color: var(--accent); }
 .set .switch-row { flex-wrap: nowrap; cursor: pointer; }
 .set-note { font-size: 13px; color: var(--muted); }
-.script-tools { display: flex; flex-wrap: wrap; gap: 6px; }
-.script-only .set-note { margin: 0; }
+.script-only .set-note { margin: -6px 0 0; }
+#event-form:not(.first-on) .first-only { display: none; }
+#first-reset { align-self: flex-start; }
 @media (max-width: 1100px) {
   .settings-bar { grid-template-columns: 1fr; }
   .set + .set { border-left: 0; border-top: 1px solid var(--line); }

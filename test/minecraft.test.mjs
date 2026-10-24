@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import {MinecraftBridge, sanitizeDonor, donorToken, scriptTarget} from '../lib/minecraft.mjs';
+import {MinecraftBridge, sanitizeDonor, donorToken} from '../lib/minecraft.mjs';
 import {rconSend} from '../lib/rcon.mjs';
 
 const connection = {host: '127.0.0.1', port: 25575, password: 'secret'};
@@ -46,27 +46,29 @@ test('своё событие: команда в base64url и понятная �
   await assert.rejects(() => bad.custom(connection, 'Steve', 'x', 'y', ['sya hi']), /не выполнилась: Unknown/);
 });
 
-test('приставки в скрипте: «всем:» - всем игрокам, «получателю:» - тому, кому пришёл донат', async () => {
-  assert.equal(scriptTarget('всем: effect give {player} speed'), 'all');
-  assert.equal(scriptTarget('ВСЕМ :say hi'), 'all');
-  assert.equal(scriptTarget('получателю: say hi'), 'receiver');
-  assert.equal(scriptTarget('say всем: привет'), null);
+test('скрипт выполняет получатель или любой игрок (@r); первый донат - учёт в моде', async () => {
   const sent = [];
-  const bridge = new MinecraftBridge({send: async ({command}) => { sent.push(command); return 'BaranusChaos:OK custom 1'; }});
-  await bridge.custom(connection, '@a', 'Аня', 'Салют', ['say a', 'получателю: say b', 'всем: say c'], {receiver: 'Steve'});
-  assert.deepEqual(sent.map(command => command.split(' ')[2]), ['@a', 'Steve', '@a']);
-  sent.length = 0;
-  await bridge.custom(connection, 'Steve', 'Аня', 'Салют', ['всем: say c']);
-  assert.equal(sent[0].split(' ')[2], '@a');
-  await assert.rejects(() => bridge.custom(connection, '@a', 'Аня', 'x', ['получателю: say b'], {receiver: ''}), /ник ещё не определён/);
+  const bridge = new MinecraftBridge({send: async ({command}) => {
+    sent.push(command);
+    if (command.startsWith('baranuschaos first')) return command.endsWith(' done') ? 'BaranusChaos:FIRST done' : 'BaranusChaos:FIRST yes';
+    return 'BaranusChaos:OK custom 1';
+  }});
+  await bridge.custom(connection, '@r', 'Аня', 'Салют', ['say {player@a}']);
+  assert.equal(sent[0].split(' ')[2], '@r');
+  await assert.rejects(() => bridge.custom(connection, '', 'Аня', 'x', ['say {player}']), /ник ещё не определён/);
+  assert.equal(await bridge.first(connection, 'c_0000beef'), true);
+  await bridge.first(connection, 'c_0000beef', 'done');
+  assert.deepEqual(sent.slice(-2), ['baranuschaos first c_0000beef', 'baranuschaos first c_0000beef done']);
+  const old = new MinecraftBridge({send: async () => 'Unknown or incomplete command, see below for error'});
+  await assert.rejects(() => old.first(connection, 'zombie'), /нет мода Baranus Chaos/);
 });
 
 test('статус мода: версия, пауза и игроки', async () => {
   const bridge = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 1 Steve,Alex'});
   assert.deepEqual(await bridge.status(connection), {version: '1.0.0', paused: true, players: ['Steve', 'Alex'], revision: 0, remote: false, me: ''});
-  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.5 0 Steve 7 1'});
-  assert.deepEqual(await fresh.status(connection), {version: '1.5.5', paused: false, players: ['Steve'], revision: 7, remote: true, me: ''});
-  const mine = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.5 0 Steve,Alex 7 1 Alex'});
+  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.6 0 Steve 7 1'});
+  assert.deepEqual(await fresh.status(connection), {version: '1.5.6', paused: false, players: ['Steve'], revision: 7, remote: true, me: ''});
+  const mine = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.6 0 Steve,Alex 7 1 Alex'});
   assert.equal((await mine.status(connection)).me, 'Alex', 'ник своего стримера — от мода');
   const empty = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 0 -'});
   assert.deepEqual((await empty.status(connection)).players, []);

@@ -81,7 +81,7 @@ public final class ChaosCatalog {
             JsonObject event = object(events, def.code());
             entries.add(new Entry(def.code(), text(event, "name", def.name(), 48), text(event, "desc", def.desc(), 160), def.category(),
                 integer(event, "price", def.price()), bool(event, "enabled", true), false,
-                target(event, ALL_BY_DEFAULT.contains(def.code())), integer(event, "cooldown", 0)));
+                allPlayers(event, ALL_BY_DEFAULT.contains(def.code())), integer(event, "cooldown", 0)));
         }
         if (customs != null) {
             for (String code : customs.keySet()) {
@@ -89,7 +89,7 @@ public final class ChaosCatalog {
                 if (custom == null || !code.matches("c_[0-9a-f]{8}")) continue;
                 JsonObject event = object(events, code);
                 entries.add(new Entry(code, text(custom, "name", "Свой ивент", 48), text(custom, "desc", "", 160), "custom",
-                    integer(event, "price", 100), bool(event, "enabled", true), true, target(event, false), integer(event, "cooldown", 0)));
+                    integer(event, "price", 100), bool(event, "enabled", true), true, allPlayers(custom, false), integer(event, "cooldown", 0)));
             }
         }
         String currency = config != null && config.has("currency") ? config.get("currency").getAsString() : "RUB";
@@ -105,11 +105,29 @@ public final class ChaosCatalog {
     /** Команды своего события, или пустой список. */
     public static List<String> commands(MinecraftServer server, String code) {
         // Свой ивент - его команды; встроенный - изменённый в приложении скрипт (если не меняли - пусто, действие мода).
+        return lines(holder(server, code), "commands");
+    }
+
+    /** Команды для первого доната в этом мире, или пустой список (тогда ивент всегда выполняет обычные). */
+    public static List<String> firstCommands(MinecraftServer server, String code) {
+        return lines(holder(server, code), "firstCommands");
+    }
+
+    /** Скрипт встроенного ивента по умолчанию - как в приложении. */
+    public static List<String> defaultScript(String code) {
+        if (!ChaosEffects.EFFECTS.containsKey(code)) return List.of();
+        return List.of("baranuschaos run " + code + (ALL_BY_DEFAULT.contains(code) ? " {player@a}" : " {player}") + " {donor}");
+    }
+
+    private static JsonObject holder(MinecraftServer server, String code) {
         JsonObject config = config(server);
         JsonObject custom = object(object(config, "customEvents"), code);
-        if (custom == null) custom = object(object(config, "events"), code);
+        return custom != null ? custom : object(object(config, "events"), code);
+    }
+
+    private static List<String> lines(JsonObject holder, String key) {
         List<String> commands = new ArrayList<>();
-        if (custom != null && custom.get("commands") instanceof JsonArray array) {
+        if (holder != null && holder.get(key) instanceof JsonArray array) {
             for (JsonElement element : array) if (element.isJsonPrimitive() && commands.size() < 10) commands.add(element.getAsString());
         }
         return commands;
@@ -177,8 +195,11 @@ public final class ChaosCatalog {
         }
     }
 
-    private static boolean target(JsonObject event, boolean fallback) {
-        String value = text(event, "target", fallback ? "all" : "receiver", 16);
-        return "all".equals(value);
+    /** «Всем игрокам» - если в командах ивента есть {player@a} (без своего скрипта - как у ивента по умолчанию). */
+    private static boolean allPlayers(JsonObject holder, boolean fallback) {
+        List<String> commands = lines(holder, "commands");
+        commands.addAll(lines(holder, "firstCommands"));
+        if (commands.isEmpty()) return fallback;
+        return commands.stream().anyMatch(line -> line.contains("{player@a}"));
     }
 }

@@ -27,7 +27,9 @@ import net.minecraft.world.phys.Vec3;
  * Выполняет только команды «baranuschaos ...».
  */
 public final class LocalBridge {
-    public static final int PORT = 25585;
+    // Другой порт - только для проверок разработчика (-Dbaranuschaos.bridgePort=...), чтобы тестовый мир не увидело
+    // запущенное на этом ПК приложение стримера.
+    public static final int PORT = Integer.getInteger("baranuschaos.bridgePort", 25585);
     private static volatile ServerSocket listener;
 
     private LocalBridge() { }
