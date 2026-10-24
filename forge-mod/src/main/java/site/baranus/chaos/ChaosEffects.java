@@ -180,6 +180,30 @@ public final class ChaosEffects {
         }
     }
 
+    /**
+     * Есть ли рядом с игроком место для моба: свободный куб 3×3×3 (без твёрдых блоков) в пределах 6 блоков
+     * по горизонтали и 3 по высоте. В узкой шахте его нет - ивент с мобами ждёт в очереди.
+     */
+    public static boolean hasRoom(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        BlockPos base = player.blockPosition();
+        for (int dy = -3; dy <= 3; dy++)
+            for (int dx = -6; dx <= 6; dx++)
+                for (int dz = -6; dz <= 6; dz++)
+                    if (freeCube(level, base.offset(dx, dy, dz))) return true;
+        return false;
+    }
+
+    private static boolean freeCube(ServerLevel level, BlockPos bottom) {
+        for (int y = 0; y <= 2; y++)
+            for (int x = -1; x <= 1; x++)
+                for (int z = -1; z <= 1; z++) {
+                    BlockPos pos = bottom.offset(x, y, z);
+                    if (!level.isLoaded(pos) || !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) return false;
+                }
+        return true;
+    }
+
     private static void requireHostile(ServerLevel level) {
         if (level.getDifficulty() == Difficulty.PEACEFUL) throw new ChaosException("peaceful");
     }

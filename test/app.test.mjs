@@ -15,7 +15,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
   const send = async ({command}) => {
     log.push(command);
     const words = command.split(' ');
-    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.6 0 ${players} ${world.revision} 0`;
+    if (command === 'baranuschaos status') return `BaranusChaos:STATUS 1.5.7 0 ${players} ${world.revision} 0`;
     if (words[1] === 'claim') { const wait = claimWait(words[2]); return wait ? `BaranusChaos:CLAIM wait ${wait}` : 'BaranusChaos:CLAIM ok'; }
     if (command === 'baranuschaos sync get') return `BaranusChaos:SYNC ${world.revision} ${Math.ceil(world.config.length / 1000)}`;
     if (words[1] === 'sync' && words[2] === 'chunk') return `BaranusChaos:CHUNK ${words[3]} ${world.config.slice(Number(words[3]) * 1000, Number(words[3]) * 1000 + 1000)}`;
@@ -29,6 +29,7 @@ function fakeMinecraft({delayMs = 0, players = 'Streamer', world = {revision: 0,
       world.revision++;
       return `BaranusChaos:SYNCED ${world.revision}`;
     }
+    if (words[1] === 'where') return 'BaranusChaos:WHERE ' + (world.where?.dimension || 'overworld') + ' ' + (world.where?.room === false ? 0 : 1);
     if (words[1] === 'first') {
       const done = world.firsts ||= new Set();
       if (words[3] === 'done') { done.add(words[2]); return 'BaranusChaos:FIRST done'; }
@@ -474,6 +475,37 @@ test('первый донат: свои команды в первый раз, �
     assert.equal(scripts().pop(), 'island tp {player@a}', 'уже обработанный донат второй раз не срабатывает');
     const cleared = await ctx.post('/api/events/save', {code, name: 'Остров', price: 77, commands: 'island2 donation {player@a}', firstCommands: ''});
     assert.equal(cleared.body.catalog.find(item => item.code === code).firstCommands, null, 'пусто - без первого раза');
+  } finally { await ctx.stop(); }
+});
+
+test('мобы: в узкой шахте и в Незере (если выключено) ивент ждёт в очереди, остальные идут', async () => {
+  const world = {revision: 0, config: '', where: {dimension: 'overworld', room: false}};
+  const minecraft = fakeMinecraft({world});
+  const ctx = await connected(minecraft, {spawnRetryMs: 20});
+  const ran = code => minecraft.log.some(command => command.startsWith('baranuschaos trigger ' + code + ' '));
+  const waitFor = async check => { for (let i = 0; i < 100 && !(await check()); i++) await new Promise(resolve => setTimeout(resolve, 20)); };
+  try {
+    await ctx.app.onDonation(donation(401, 20));
+    await ctx.app.onDonation(donation(402, 49));
+    await waitFor(() => ran('heal'));
+    assert.ok(ran('heal'), 'ивент без мобов не ждёт');
+    assert.ok(!ran('zombie'), 'зомби ждёт места');
+    const queued = (await ctx.get('/api/state')).queue;
+    assert.deepEqual(queued.map(item => [item.code, item.note]), [['zombie', 'Ждёт: мобам нет места рядом с игроком']]);
+    world.where = {dimension: 'nether', room: true};
+    await waitFor(() => ran('zombie'));
+    assert.ok(ran('zombie'), 'место появилось - зомби заспавнился (в Незере мобы по умолчанию можно)');
+    await ctx.post('/api/settings', {spawn: {otherDimensions: false}});
+    await ctx.app.onDonation(donation(403, 20));
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.equal((await ctx.get('/api/state')).queue[0]?.note, 'Ждёт: игрок в Незере');
+    world.where = {dimension: 'overworld', room: true};
+    await settle(ctx);
+    assert.equal(minecraft.log.filter(command => command.startsWith('baranuschaos trigger zombie ')).length, 2, 'вернулся в обычный мир - сработал');
+    await ctx.post('/api/settings', {spawn: {waitSpace: false, otherDimensions: true}});
+    world.where = {dimension: 'end', room: false};
+    await donate(ctx, donation(404, 20));
+    assert.equal(minecraft.log.filter(command => command.startsWith('baranuschaos trigger zombie ')).length, 3, 'оба выключателя выключены - не ждёт');
   } finally { await ctx.stop(); }
 });
 

@@ -50,6 +50,10 @@ public final class ChaosCommands {
             .then(Commands.literal("toggle")
                 .then(Commands.argument("code", StringArgumentType.word())
                     .executes(context -> toggle(context.getSource(), StringArgumentType.getString(context, "code")))))
+            // Где игрок для очереди ивентов с мобами: «WHERE <overworld|nether|end|other> <1|0 - есть место для моба>».
+            .then(Commands.literal("where")
+                .then(Commands.argument("target", EntityArgument.player())
+                    .executes(context -> where(context.getSource(), EntityArgument.getPlayer(context, "target")))))
             .then(Commands.literal("cleanup")
                 .then(Commands.argument("target", EntityArgument.player())
                     .executes(context -> cleanup(context.getSource(), EntityArgument.getPlayer(context, "target")))))
@@ -216,6 +220,14 @@ public final class ChaosCommands {
         }
         // Подпись ивента (label) мод больше не показывает: надписи на экране делает сам скрипт (другим модом).
         return reply(source, "BaranusChaos:OK custom " + ok, "Свой ивент выполнен");
+    }
+
+    private static int where(CommandSourceStack source, ServerPlayer player) {
+        var dimension = player.level().dimension();
+        String name = dimension == net.minecraft.world.level.Level.OVERWORLD ? "overworld"
+            : dimension == net.minecraft.world.level.Level.NETHER ? "nether"
+            : dimension == net.minecraft.world.level.Level.END ? "end" : "other";
+        return reply(source, "BaranusChaos:WHERE " + name + " " + (ChaosEffects.hasRoom(player) ? 1 : 0), "Игрок: " + name);
     }
 
     private static int first(CommandSourceStack source, String code, Boolean done) {

@@ -300,6 +300,12 @@ function renderEvents() {
   $('#currency').value = settings.currency;
   renderCurrencies();
   if (document.activeElement !== $('#queue-delay')) $('#queue-delay').value = settings.queue.delay;
+  $('#spawn-space').checked = settings.spawn.waitSpace;
+  $('#spawn-dims').checked = settings.spawn.otherDimensions;
+  // Какие ивенты считаются «с мобами» - видно в подсказке к заголовку.
+  const mobs = S.catalog.filter(effect => effect.mobs).map(effect => effect.name);
+  $('#mobs-label').textContent = mobs.length ? `Мобы · ${mobs.length} ${plural(mobs.length, 'ивент', 'ивента', 'ивентов')}` : 'Мобы';
+  $('#mobs-label').title = mobs.length ? 'Ивенты с мобами: ' + mobs.join(', ') : 'Ивентов с мобами нет';
   $$('#fx-layout button').forEach(button => button.classList.toggle('active', button.dataset.layout === layout));
   $('#fx-sort').value = sortMode;
   const counts = duplicates();
@@ -430,6 +436,8 @@ $('#fx-layout').addEventListener('click', event => {
 });
 $('#popout').addEventListener('click', () => window.open('/?popout=events', 'baranus-events', 'width=560,height=760'));
 $('#queue-delay').addEventListener('change', event => save({queue: {delay: Number(event.target.value)}}, 'Задержка сохранена'));
+$('#spawn-space').addEventListener('change', event => save({spawn: {waitSpace: event.target.checked}}));
+$('#spawn-dims').addEventListener('change', event => save({spawn: {otherDimensions: event.target.checked}}));
 
 // ---------- Валюты ----------
 async function refreshRatesNow(button) {

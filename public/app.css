@@ -230,7 +230,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 /* ---------- События ---------- */
 .toolbar { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding: 16px 18px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
 /* Панель настроек ивентов: три блока одной высоты, заголовки на одной линии. */
-.settings-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; padding: 0; align-items: stretch; overflow: hidden; }
+.settings-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0; padding: 0; align-items: stretch; overflow: hidden; }
 .set { display: flex; flex-direction: column; gap: 10px; padding: 16px 22px; min-width: 0; }
 .set + .set { border-left: 1px solid var(--line); }
 .set-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 40px; }
@@ -241,6 +241,7 @@ input:focus-visible + .switch { outline: 2px solid var(--accent-2); outline-offs
 .delay-field input { width: 70px; height: 40px; padding: 0 10px; border-radius: 11px; border: 1px solid var(--line-2); background: #0e0a0b; color: var(--text); font-weight: 700; outline: none; }
 .delay-field input:focus { border-color: var(--accent); }
 .set .switch-row { flex-wrap: nowrap; cursor: pointer; }
+.set-mobs { gap: 8px; }
 .set-note { font-size: 13px; color: var(--muted); }
 .script-only .set-note { margin: -6px 0 0; }
 #event-form:not(.first-on) .first-only { display: none; }
