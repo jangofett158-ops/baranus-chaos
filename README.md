@@ -1,10 +1,11 @@
 # Baranus Chaos
 
 
-- **Приложение для Windows (x64):** [Baranus-Chaos-1.7.1.exe](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.1/Baranus-Chaos-1.7.1.exe)
-- **Мод для Minecraft 1.20.1 (Forge):** [baranus-chaos-forge-1.5.5.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.1/baranus-chaos-forge-1.5.5.jar)
-- **Мобы для ивентов (Forge):** [chaosmobs-1.0.0.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.1/chaosmobs-1.0.0.jar)
-- **Настройки ивентов:** [baranus-ivents-2026-10-23.json](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.1/baranus-ivents-2026-10-23.json)
+- **Приложение для Windows (x64):** [Baranus-Chaos-1.7.5.exe](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/Baranus-Chaos-1.7.5.exe)
+- **Мод для Minecraft 1.20.1 (Forge):** [baranus-chaos-forge-1.5.7.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-chaos-forge-1.5.7.jar)
+- **Мобы для ивентов (Forge):** [chaosmobs-1.0.0.jar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/chaosmobs-1.0.0.jar)
+- **Настройки ивентов:** [baranus-ivents-2026-10-24.json](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-ivents-2026-10-24.json)
+- **Сборка модов:** [baranus-modpack-1.7.5.rar](https://github.com/jangofett158-ops/baranus-chaos/releases/download/v1.7.5/baranus-modpack-1.7.5.rar)
 События и мобы
 
 /nuke [секунды] [радиус]: ядерный удар по месту, где стоишь. По умолчанию 90 секунд и радиус 250.
