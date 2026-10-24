@@ -482,6 +482,8 @@ test('мобы: в узкой шахте и в Незере (если выклю
   const world = {revision: 0, config: '', where: {dimension: 'overworld', room: false}};
   const minecraft = fakeMinecraft({world});
   const ctx = await connected(minecraft, {spawnRetryMs: 20});
+  assert.deepEqual((await ctx.get('/api/state')).settings.spawn, {waitSpace: false, otherDimensions: false}, 'по умолчанию выключены');
+  await ctx.post('/api/settings', {spawn: {waitSpace: true, otherDimensions: true}});
   const ran = code => minecraft.log.some(command => command.startsWith('baranuschaos trigger ' + code + ' '));
   const waitFor = async check => { for (let i = 0; i < 100 && !(await check()); i++) await new Promise(resolve => setTimeout(resolve, 20)); };
   try {
@@ -494,7 +496,7 @@ test('мобы: в узкой шахте и в Незере (если выклю
     assert.deepEqual(queued.map(item => [item.code, item.note]), [['zombie', 'Ждёт: мобам нет места рядом с игроком']]);
     world.where = {dimension: 'nether', room: true};
     await waitFor(() => ran('zombie'));
-    assert.ok(ran('zombie'), 'место появилось - зомби заспавнился (в Незере мобы по умолчанию можно)');
+    assert.ok(ran('zombie'), 'место появилось - зомби заспавнился (спавн в Незере включён)');
     await ctx.post('/api/settings', {spawn: {otherDimensions: false}});
     await ctx.app.onDonation(donation(403, 20));
     await new Promise(resolve => setTimeout(resolve, 200));
