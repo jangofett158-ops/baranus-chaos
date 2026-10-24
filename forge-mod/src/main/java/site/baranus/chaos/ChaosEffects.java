@@ -12,9 +12,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -128,7 +125,7 @@ public final class ChaosEffects {
         int level(int fallback) { return level > 0 ? Math.min(level, 10) : fallback; }
     }
 
-    /** Выполнить событие для одного игрока. Объявление — отдельно, через announceAll (один раз для всех). */
+    /** Выполнить событие для одного игрока. Надписей и сообщений в чате мод не показывает. */
     public static void execute(String code, ServerPlayer player, String donor, Params p) {
         Info info = EFFECTS.get(code);
         if (info == null) throw new ChaosException("unknown");
@@ -180,21 +177,6 @@ public final class ChaosEffects {
             }
             case "storm" -> overworld.setWeatherParameters(0, 20 * p.seconds(120), true, true);
             default -> throw new ChaosException("unknown");
-        }
-    }
-
-    /** Надпись на экране и сообщение в чате — всем игрокам в мире (оба стримера видят каждое событие). */
-    public static void announceAll(MinecraftServer server, Info info, String donor) {
-        Component title = Component.literal(info.label()).withStyle(info.color(), ChatFormatting.BOLD);
-        Component subtitle = Component.literal("от " + donor).withStyle(ChatFormatting.WHITE);
-        Component chat = Component.literal("[Хаос] ").withStyle(ChatFormatting.DARK_RED)
-            .append(Component.literal(donor).withStyle(ChatFormatting.RED))
-            .append(Component.literal(" → " + info.label()).withStyle(ChatFormatting.GRAY));
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.connection.send(new ClientboundSetTitlesAnimationPacket(4, 40, 12));
-            player.connection.send(new ClientboundSetTitleTextPacket(title));
-            player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
-            player.sendSystemMessage(chat);
         }
     }
 

@@ -30,6 +30,8 @@ public final class ChaosCommands {
     private static final SuggestionProvider<CommandSourceStack> EFFECTS =
         (context, builder) -> SharedSuggestionProvider.suggest(ChaosEffects.CODES, builder);
     private static final int CHUNK = 1000;
+    // Команда выполняется из скрипта ивента (runAs): её ответ идёт не в чат, а в разбор ошибок для приложения.
+    private static final ThreadLocal<Boolean> IN_SCRIPT = ThreadLocal.withInitial(() -> false);
 
     private ChaosCommands() { }
 
@@ -150,7 +152,6 @@ public final class ChaosCommands {
             }
         }
         if (done.isEmpty()) return error(source, firstError == null ? "failed" : firstError);
-        ChaosEffects.announceAll(source.getServer(), ChaosEffects.EFFECTS.get(effect), donor);
         return reply(source, "BaranusChaos:OK " + effect + " " + String.join(",", done),
             "Ивент «" + ChaosEffects.EFFECTS.get(effect).label() + "» запущен");
     }
@@ -213,11 +214,7 @@ public final class ChaosCommands {
             source.sendFailure(Component.literal("BaranusChaos:ERROR command " + (failure == null || failure.isEmpty() ? "-" : failure)));
             return 0;
         }
-        if (!"-".equals(labelToken)) {
-            String label = ChaosEffects.decodeText(labelToken, 48);
-            if (label != null && !label.isBlank())
-                ChaosEffects.announceAll(source.getServer(), new ChaosEffects.Info(label.replace("§", ""), ChatFormatting.RED), donor);
-        }
+        // Подпись ивента (label) мод больше не показывает: надписи на экране делает сам скрипт (другим модом).
         return reply(source, "BaranusChaos:OK custom " + ok, "Свой ивент выполнен");
     }
 
@@ -248,7 +245,13 @@ public final class ChaosCommands {
         CommandSourceStack stack = new CommandSourceStack(collector, target.position(), target.getRotationVector(), target.serverLevel(),
             2, target.getName().getString(), target.getDisplayName(), target.server, target)
             .withCallback((ctx, success, result) -> { if (success) succeeded.set(true); });
-        target.server.getCommands().performPrefixedCommand(stack, command);
+        boolean outer = IN_SCRIPT.get();
+        IN_SCRIPT.set(true);
+        try {
+            target.server.getCommands().performPrefixedCommand(stack, command);
+        } finally {
+            IN_SCRIPT.set(outer);
+        }
         return succeeded.get() ? null : output.toString().trim().replaceAll("\\s+", " ");
     }
 
@@ -270,7 +273,6 @@ public final class ChaosCommands {
             } catch (ChaosEffects.ChaosException failure) {
                 return error(source, failure.getMessage());
             }
-            ChaosEffects.announceAll(server, ChaosEffects.EFFECTS.get(effect), "Тест");
             return reply(source, "BaranusChaos:OK " + effect + " " + player.getGameProfile().getName(),
                 "Проверка: «" + ChaosEffects.EFFECTS.get(effect).label() + "»");
         }
@@ -280,9 +282,7 @@ public final class ChaosCommands {
             String result = runAs(player, command, "Тест");
             if (result != null && failure == null) failure = result;
         }
-        ChaosCatalog.snapshot(server).entries().stream().filter(entry -> entry.code().equals(effect)).findFirst().ifPresent(entry ->
-            ChaosEffects.announceAll(server, new ChaosEffects.Info(entry.name(), ChatFormatting.AQUA), "Тест"));
-        if (failure != null) source.sendFailure(Component.literal("Команда не выполнилась: " + failure));
+        if (failure != null) return error(source, "command");
         return reply(source, "BaranusChaos:OK custom " + effect, "Проверка ивента");
     }
 
@@ -374,14 +374,18 @@ public final class ChaosCommands {
         return reply(source, "BaranusChaos:CLEANED " + entities.size(), "Убрано существ хаоса: " + entities.size());
     }
 
+    // В чат игроку мод ничего не пишет (ни меню, ни ивенты): ответы получают только приложение и скрипты ивентов.
+    private static boolean answers(CommandSourceStack source) {
+        return IN_SCRIPT.get() || !(source.getEntity() instanceof ServerPlayer);
+    }
+
     private static int error(CommandSourceStack source, String code) {
-        source.sendFailure(Component.literal("BaranusChaos:ERROR " + code));
+        if (answers(source)) source.sendFailure(Component.literal("BaranusChaos:ERROR " + code));
         return 0;
     }
 
     private static int reply(CommandSourceStack source, String machine, String human) {
-        boolean player = source.getEntity() instanceof ServerPlayer;
-        source.sendSuccess(() -> Component.literal(player ? human : machine), false);
+        if (answers(source)) source.sendSuccess(() -> Component.literal(machine), false);
         return 1;
     }
 }
