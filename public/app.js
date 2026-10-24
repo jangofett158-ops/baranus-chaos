@@ -756,6 +756,16 @@ $('#import-file').addEventListener('change', async event => {
   } catch (error) { toast(error.message, 'bad'); }
 });
 $('#copy-price-dash').addEventListener('click', () => copy(priceText(), 'Прайс скопирован'));
+$('#clear-donations').addEventListener('click', async () => {
+  if (!confirm('Очистить донаты и начать заново? Лента ивентов очистится, а ивенты с «первым донатом» снова выполнят команды для первого раза (например, первый остров).')) return;
+  try {
+    const result = await api('/api/donations/clear');
+    S.history = [];
+    renderFeed();
+    toast(result.pending ? 'Лента очищена. Первый донат сбросится, когда подключите Minecraft - нажмите ещё раз.'
+      : result.reset ? 'Донаты очищены: следующий донат снова будет первым' : 'Лента донатов очищена', result.pending ? '' : 'ok');
+  } catch (error) { toast(error.message, 'bad'); }
+});
 
 
 
@@ -818,6 +828,9 @@ function connectStream() {
       if (!wasOnline && S.da.state === 'online') toast('DonationAlerts подключён', 'ok');
       renderStatus();
       renderEvents();
+    } else if (message.type === 'history-clear') {
+      S.history = [];
+      renderFeed();
     } else if (message.type === 'history') {
       S.history.unshift(message.entry);
       S.history.splice(200);

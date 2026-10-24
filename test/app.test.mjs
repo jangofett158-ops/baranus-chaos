@@ -463,6 +463,15 @@ test('первый донат: свои команды в первый раз, �
     assert.ok((await ctx.post('/api/events/first-reset', {code})).body.ok);
     await donate(ctx, donation(303, 77));
     assert.equal(scripts().pop(), 'island tp {player@a}', 'после сброса - снова первый остров');
+    await donate(ctx, donation(304, 77));
+    assert.equal(scripts().pop(), 'island2 donation {player@a}');
+    const clean = await ctx.post('/api/donations/clear');
+    assert.deepEqual([clean.body.reset, clean.body.pending], [1, false]);
+    assert.equal((await ctx.get('/api/state')).history.length, 0, 'лента очищена');
+    await donate(ctx, donation(305, 77));
+    assert.equal(scripts().pop(), 'island tp {player@a}', 'после очистки донатов - снова первый остров');
+    await donate(ctx, donation(304, 77));
+    assert.equal(scripts().pop(), 'island tp {player@a}', 'уже обработанный донат второй раз не срабатывает');
     const cleared = await ctx.post('/api/events/save', {code, name: 'Остров', price: 77, commands: 'island2 donation {player@a}', firstCommands: ''});
     assert.equal(cleared.body.catalog.find(item => item.code === code).firstCommands, null, 'пусто - без первого раза');
   } finally { await ctx.stop(); }
