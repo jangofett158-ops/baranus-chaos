@@ -1,0 +1,421 @@
+{
+  "format": "baranus-chaos-ivents",
+  "version": 3,
+  "currency": "RUB",
+  "ivents": [
+    {
+      "code": "heal",
+      "name": "Исцеление",
+      "desc": "Полностью восстанавливает здоровье и тушит огонь",
+      "commands": [
+        "chaosalert \"Исцеление\" {donor}",
+        "baranuschaos run heal {player@a} {donor}"
+      ],
+      "price": 49,
+      "enabled": true
+    },
+    {
+      "code": "food",
+      "name": "Накормить",
+      "desc": "Заполняет шкалу голода и насыщения",
+      "commands": [
+        "chaosalert \"Накормить\" {donor}",
+        "baranuschaos run food {player@a} {donor}"
+      ],
+      "price": 67,
+      "enabled": true
+    },
+    {
+      "code": "speed",
+      "name": "Скорость",
+      "desc": "Ускорение",
+      "commands": [
+        "chaosalert \"Скорость\" {donor}",
+        "baranuschaos run speed {player@a} {donor}"
+      ],
+      "price": 70,
+      "enabled": true
+    },
+    {
+      "code": "buff",
+      "name": "Мощь",
+      "desc": "Сила и сопротивление",
+      "commands": [
+        "chaosalert \"Мощь\" {donor}",
+        "baranuschaos run buff {player@a} {donor}"
+      ],
+      "price": 68,
+      "enabled": true
+    },
+    {
+      "code": "gift",
+      "name": "Подарок",
+      "desc": "Случайные полезные предметы",
+      "commands": [
+        "chaosalert \"Подарок\" {donor}",
+        "baranuschaos run gift {player@a} {donor}"
+      ],
+      "price": 76,
+      "enabled": true
+    },
+    {
+      "code": "diamond",
+      "name": "Алмазы",
+      "desc": "Алмазы в инвентарь",
+      "commands": [
+        "chaosalert \"Алмазы\" {donor}",
+        "baranuschaos run diamond {player@a} {donor}"
+      ],
+      "price": 94,
+      "enabled": true
+    },
+    {
+      "code": "wolf",
+      "name": "Пёс-защитник",
+      "desc": "Приручённые волки с ником зрителя",
+      "commands": [
+        "chaosalert \"Пёс-защитник\" {donor}",
+        "baranuschaos run wolf {player} {donor}"
+      ],
+      "price": 79,
+      "enabled": true
+    },
+    {
+      "code": "golem",
+      "name": "Железный голем",
+      "desc": "Голем-охранник рядом с игроком",
+      "commands": [
+        "chaosalert \"Железный голем\" {donor}",
+        "baranuschaos run golem {player} {donor}"
+      ],
+      "price": 149,
+      "enabled": true
+    },
+    {
+      "code": "blind",
+      "name": "Слепота",
+      "desc": "Слепота",
+      "commands": [
+        "chaosalert \"Слепота\" {donor}",
+        "baranuschaos run blind {player@a} {donor}"
+      ],
+      "price": 60,
+      "enabled": true
+    },
+    {
+      "code": "drunk",
+      "name": "Головокружение",
+      "desc": "Тошнота",
+      "commands": [
+        "chaosalert \"Головокружение\" {donor}",
+        "baranuschaos run drunk {player@a} {donor}"
+      ],
+      "price": 95,
+      "enabled": true
+    },
+    {
+      "code": "darkness",
+      "name": "Темнота",
+      "desc": "Пульсирующая тьма",
+      "commands": [
+        "chaosalert \"Темнота\" {donor}",
+        "baranuschaos run darkness {player@a} {donor}"
+      ],
+      "price": 48,
+      "enabled": true
+    },
+    {
+      "code": "freeze",
+      "name": "Заморозка",
+      "desc": "Почти не может двигаться",
+      "commands": [
+        "chaosalert \"Заморозка\" {donor}",
+        "baranuschaos run freeze {player@a} {donor}"
+      ],
+      "price": 65,
+      "enabled": true
+    },
+    {
+      "code": "launch",
+      "name": "В небо!",
+      "desc": "Подбрасывает игрока, плавное падение",
+      "commands": [
+        "chaosalert \"В небо!\" {donor}",
+        "baranuschaos run launch {player@a} {donor}"
+      ],
+      "price": 126,
+      "enabled": true
+    },
+    {
+      "code": "drop",
+      "name": "Выронить",
+      "desc": "Предмет из руки падает на землю",
+      "commands": [
+        "chaosalert \"Выронить\" {donor}",
+        "baranuschaos run drop {player@a} {donor}"
+      ],
+      "price": 75,
+      "enabled": true
+    },
+    {
+      "code": "hotbar",
+      "name": "Перемешать",
+      "desc": "Перемешивает слоты хотбара",
+      "commands": [
+        "chaosalert \"Перемешать\" {donor}",
+        "baranuschaos run hotbar {player@a} {donor}"
+      ],
+      "price": 89,
+      "enabled": true
+    },
+    {
+      "code": "pig",
+      "name": "Свинка",
+      "desc": "Свиньи с ником зрителя",
+      "commands": [
+        "chaosalert \"Свинка\" {donor}",
+        "baranuschaos run pig {player} {donor}"
+      ],
+      "price": 112,
+      "enabled": true
+    },
+    {
+      "code": "zombie",
+      "name": "Зомби",
+      "desc": "Зомби с ником зрителя",
+      "commands": [
+        "chaosalert \"Зомби\" {donor}",
+        "baranuschaos run zombie {player} {donor}"
+      ],
+      "price": 73,
+      "enabled": true
+    },
+    {
+      "code": "skeleton",
+      "name": "Скелет",
+      "desc": "Скелеты-лучники с ником зрителя",
+      "commands": [
+        "chaosalert \"Скелет\" {donor}",
+        "baranuschaos run skeleton {player} {donor}"
+      ],
+      "price": 50,
+      "enabled": true
+    },
+    {
+      "code": "creeper",
+      "name": "Крипер",
+      "desc": "Криперы рядом",
+      "commands": [
+        "chaosalert \"Крипер\" {donor}",
+        "baranuschaos run creeper {player} {donor}"
+      ],
+      "price": 61,
+      "enabled": true
+    },
+    {
+      "code": "chickenrain",
+      "name": "Куриный дождь",
+      "desc": "Курицы с ником зрителя падают с неба",
+      "commands": [
+        "chaosalert \"Куриный дождь\" {donor}",
+        "chaoschickens {player} 8 {donor}"
+      ],
+      "price": 72,
+      "enabled": true
+    },
+    {
+      "code": "lightning",
+      "name": "Молния",
+      "desc": "Молния бьёт прямо в игрока",
+      "commands": [
+        "chaosalert \"Молния\" {donor}",
+        "chaoslightning {player}"
+      ],
+      "price": 80,
+      "enabled": true
+    },
+    {
+      "code": "faketnt",
+      "name": "Фейковый TNT",
+      "desc": "Шипит и «взрывается» без разрушений",
+      "commands": [
+        "chaosalert \"Фейковый TNT\" {donor}",
+        "baranuschaos run faketnt {player} {donor}"
+      ],
+      "price": 85,
+      "enabled": true
+    },
+    {
+      "code": "night",
+      "name": "Ночь",
+      "desc": "Мгновенно наступает ночь",
+      "commands": [
+        "chaosalert \"Ночь\" {donor}",
+        "baranuschaos run night {player} {donor}"
+      ],
+      "price": 69,
+      "enabled": true
+    },
+    {
+      "code": "storm",
+      "name": "Гроза",
+      "desc": "Гроза",
+      "commands": [
+        "chaosalert \"Гроза\" {donor}",
+        "baranuschaos run storm {player} {donor}"
+      ],
+      "price": 99,
+      "enabled": true
+    },
+    {
+      "code": "randomitem",
+      "name": "Случайный предмет",
+      "desc": "Случайная добыча из сундука данжа",
+      "commands": [
+        "chaosalert \"Случайный предмет\" {donor}",
+        "loot give {player@a} loot minecraft:chests/simple_dungeon"
+      ],
+      "price": 50,
+      "enabled": true
+    },
+    {
+      "code": "randommob",
+      "name": "Случайный моб",
+      "desc": "Случайный моб с ником зрителя рядом с игроком",
+      "commands": [
+        "chaosalert \"Случайный моб\" {donor}",
+        "execute at {player} run summon minecraft:zombie ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute at {player} run summon minecraft:skeleton ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute at {player} run summon minecraft:spider ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute at {player} run summon minecraft:creeper ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute at {player} run summon minecraft:pig ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute at {player} run summon minecraft:sheep ~2 ~ ~ {Tags:[\"chaos_pick\"],CustomName:'\"{donor}\"',CustomNameVisible:1b}",
+        "execute as @e[tag=chaos_pick,sort=random,limit=5] at @s run tp @s ~ -1000 ~",
+        "tag @e[tag=chaos_pick] remove chaos_pick"
+      ],
+      "price": 50,
+      "enabled": true
+    },
+    {
+      "code": "random",
+      "name": "Случайный ивент",
+      "desc": "Любой включённый ивент наугад",
+      "price": 100,
+      "enabled": true
+    },
+    {
+      "name": "Ядерный удар",
+      "desc": "Бомба падает рядом со стримером: 60 секунд, чтобы убежать",
+      "commands": [
+        "chaosalert \"Ядерный удар\" {donor}",
+        "execute at {player} run nuke 60 150"
+      ],
+      "price": 999,
+      "enabled": true
+    },
+    {
+      "name": "Сверьте часы",
+      "desc": "Сергей Таборицкий с конвоем штурмовиков, потом придёт царь Алексей",
+      "commands": [
+        "chaosalert \"Сверьте часы\" {donor}",
+        "execute at {player} run taboritsky"
+      ],
+      "price": 399,
+      "enabled": true
+    },
+    {
+      "name": "Горыныч",
+      "desc": "Горыныч с ракетами рядом со стримером",
+      "commands": [
+        "chaosalert \"ПВО Горыныч\" {donor}",
+        "execute at {player} run gorynych"
+      ],
+      "price": 449,
+      "enabled": true
+    },
+    {
+      "name": "Лаич Па",
+      "desc": "Небесная черепаха прилетает бомбить",
+      "commands": [
+        "chaosalert \"Лаич Па\" {donor}",
+        "execute at {player} run skyturtle 1"
+      ],
+      "price": 249,
+      "enabled": true
+    },
+    {
+      "name": "Атака шахедов",
+      "desc": "6 шахедов летят на каждого игрока",
+      "commands": [
+        "chaosalert \"Атака шахедов\" {donor}",
+        "droneattack 6"
+      ],
+      "price": 299,
+      "enabled": true
+    },
+    {
+      "name": "Айдим",
+      "desc": "Король консоли в 20 блоках от стримера (в пещере тоже)",
+      "commands": [
+        "chaosalert \"Айдим\" {donor}",
+        "chaosspawn aidim {player}"
+      ],
+      "price": 299,
+      "enabled": true
+    },
+    {
+      "name": "Стройбат",
+      "desc": "Танк с солдатами в 20 блоках от стримера (в пещере тоже)",
+      "commands": [
+        "chaosalert \"Стройбат\" {donor}",
+        "chaosspawn stroibat {player}"
+      ],
+      "price": 299,
+      "enabled": true
+    },
+    {
+      "name": "Козёл",
+      "desc": "Верни тикток козла",
+      "commands": [
+        "chaosalert \"Козёл\" {donor}",
+        "chaosspawn goat_man {player}"
+      ],
+      "price": 199,
+      "enabled": true
+    },
+    {
+      "name": "ZA WARUDO",
+      "desc": "Остановка времени на 15 секунд",
+      "commands": [
+        "chaosalert \"ZA WARUDO\" {donor}",
+        "timestop 15"
+      ],
+      "price": 149,
+      "enabled": true
+    },
+    {
+      "name": "Made in Heaven",
+      "desc": "Дни и ночи проносятся мимо 20 секунд",
+      "commands": [
+        "chaosalert \"Made in Heaven\" {donor}",
+        "madeinheaven 20"
+      ],
+      "price": 129,
+      "enabled": true
+    },
+    {
+      "name": "Остров",
+      "desc": "Первый донат - все на остров с храмом, следующие - все на второй остров",
+      "commands": [
+        "chaosalert \"Второй остров\" {donor}",
+        "island2 tp @a"
+      ],
+      "price": 299,
+      "enabled": true,
+      "firstCommands": [
+        "chaosalert \"Остров\" {donor}",
+        "island tp @a"
+      ]
+    }
+  ]
+}
