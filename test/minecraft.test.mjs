@@ -66,9 +66,9 @@ test('скрипт выполняет получатель или любой и�
 test('статус мода: версия, пауза и игроки', async () => {
   const bridge = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 1 Steve,Alex'});
   assert.deepEqual(await bridge.status(connection), {version: '1.0.0', paused: true, players: ['Steve', 'Alex'], revision: 0, remote: false, me: ''});
-  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.7 0 Steve 7 1'});
-  assert.deepEqual(await fresh.status(connection), {version: '1.5.7', paused: false, players: ['Steve'], revision: 7, remote: true, me: ''});
-  const mine = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.5.7 0 Steve,Alex 7 1 Alex'});
+  const fresh = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.6.0 0 Steve 7 1'});
+  assert.deepEqual(await fresh.status(connection), {version: '1.6.0', paused: false, players: ['Steve'], revision: 7, remote: true, me: ''});
+  const mine = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.6.0 0 Steve,Alex 7 1 Alex'});
   assert.equal((await mine.status(connection)).me, 'Alex', 'ник своего стримера — от мода');
   const empty = new MinecraftBridge({send: async () => 'BaranusChaos:STATUS 1.0.0 0 -'});
   assert.deepEqual((await empty.status(connection)).players, []);

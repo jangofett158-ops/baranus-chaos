@@ -13,3 +13,6 @@ forge-mod/run-server/
 # Локальное
 .claude/
 _backup-0.4.0/
+
+# Исходники Chaos Mobs - только на этом ПК (All Rights Reserved), в jar мода входят при сборке
+chaosmobs/

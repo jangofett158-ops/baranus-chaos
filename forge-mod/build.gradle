@@ -2,9 +2,10 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
 }
 
-version = '1.5.7'
+version = '1.6.0'
 group = 'site.baranus.chaos'
 
 base {
@@ -13,26 +14,78 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+// Chaos Mobs (мобы, острова, катсцены) входит в тот же jar, если рядом лежат его исходники - ../chaosmobs,
+// только на ПК разработчика (All Rights Reserved, в публичный репозиторий не попадают). Без них собирается
+// один Baranus Chaos.
+def chaosMobs = file('../chaosmobs')
+def withMobs = file("${chaosMobs}/src/main/java").exists()
+
+sourceSets.main {
+    if (withMobs) {
+        java.srcDir "${chaosMobs}/src/main/java"
+        resources.srcDir "${chaosMobs}/src/main/resources"
+    }
+}
+
 minecraft {
     mappings channel: 'official', version: '1.20.1'
     copyIdeResources = true
     runs {
+        configureEach {
+            property 'forge.logging.console.level', 'info'
+            if (withMobs) {
+                property 'mixin.env.remapRefMap', 'true'
+                property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            }
+            mods {
+                baranuschaos { source sourceSets.main }
+                if (withMobs) chaosmobs { source sourceSets.main }
+            }
+        }
         client {
             workingDirectory project.file('run')
-            property 'forge.logging.console.level', 'info'
-            mods { baranuschaos { source sourceSets.main } }
         }
         server {
             workingDirectory project.file('run-server')
-            property 'forge.logging.console.level', 'info'
             args '--nogui'
-            mods { baranuschaos { source sourceSets.main } }
         }
     }
 }
 
+if (withMobs) {
+    mixin {
+        add sourceSets.main, 'chaosmobs.refmap.json'
+        config 'chaosmobs.mixins.json'
+    }
+}
+
+repositories {
+    // Immersive Portals: Chaos Mobs компилируется с ним, но в jar он не входит (необязательная зависимость).
+    if (withMobs) flatDir { dirs "${chaosMobs}/libs" }
+}
+
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
+    if (withMobs) {
+        annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+        compileOnly fg.deobf('local:immersive-portals:3.0.7-all')
+    }
+}
+
+processResources {
+    // У обоих модов свои META-INF/mods.toml и pack.mcmeta: берём файлы Baranus Chaos,
+    // а описание Chaos Mobs ([[mods]] chaosmobs и его зависимости) дописываем в общий mods.toml.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    if (withMobs) {
+        def mobsToml = file("${chaosMobs}/src/main/resources/META-INF/mods.toml")
+        inputs.file mobsToml
+        doLast {
+            def text = mobsToml.getText('UTF-8')
+            def entry = text.substring(text.indexOf('[[mods]]'))
+            def merged = file("${destinationDir}/META-INF/mods.toml")
+            merged.setText(merged.getText('UTF-8') + '\n' + entry, 'UTF-8')
+        }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
